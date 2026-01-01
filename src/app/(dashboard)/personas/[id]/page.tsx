@@ -39,6 +39,15 @@ type ProviderSettings = {
   configs: ProviderConfig[];
 };
 
+type EmailConnector = {
+  enabled: boolean;
+  imapHost: string | null;
+  imapPort: number | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  username: string | null;
+};
+
 type MemorySummary = {
   data: Array<{ id: string; name: string; status: string }>;
 };
@@ -59,6 +68,18 @@ export default function PersonaDetailPage() {
     apiKey: '',
     isEnabled: true
   });
+  const [emailForm, setEmailForm] = useState({
+    enabled: false,
+    imapHost: '',
+    imapPort: 993,
+    imapUsername: '',
+    imapPassword: '',
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUsername: '',
+    smtpPassword: ''
+  });
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
   const [agentName, setAgentName] = useState('');
   const [agentDescription, setAgentDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +105,23 @@ export default function PersonaDetailPage() {
         setFallbackProviders(response.fallbackProviders.join(', '));
       })
       .catch(() => setProviderSettings(null));
+
+    apiFetch<{ email: EmailConnector }>(`/personas/${personaId}/connectors`)
+      .then((response) => {
+        const email = response.email;
+        setEmailForm({
+          enabled: email.enabled,
+          imapHost: email.imapHost ?? '',
+          imapPort: email.imapPort ?? 993,
+          imapUsername: email.username ?? '',
+          imapPassword: '',
+          smtpHost: email.smtpHost ?? '',
+          smtpPort: email.smtpPort ?? 587,
+          smtpUsername: email.username ?? '',
+          smtpPassword: ''
+        });
+      })
+      .catch(() => undefined);
   }, [personaId]);
 
   async function handleCreateAgent(event: React.FormEvent) {
@@ -151,6 +189,39 @@ export default function PersonaDetailPage() {
       setProviderSettings(refreshed);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save provider');
+    }
+  }
+
+  async function handleSaveEmailConnector(event: React.FormEvent) {
+    event.preventDefault();
+    if (!personaId) return;
+    setError(null);
+    setEmailStatus(null);
+
+    try {
+      await apiFetch(`/personas/${personaId}/connectors/email`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          enabled: emailForm.enabled,
+          imapHost: emailForm.imapHost,
+          imapPort: Number(emailForm.imapPort),
+          imapUsername: emailForm.imapUsername,
+          imapPassword: emailForm.imapPassword,
+          smtpHost: emailForm.smtpHost,
+          smtpPort: Number(emailForm.smtpPort),
+          smtpUsername: emailForm.smtpUsername,
+          smtpPassword: emailForm.smtpPassword
+        })
+      });
+
+      setEmailForm((prev) => ({
+        ...prev,
+        imapPassword: '',
+        smtpPassword: ''
+      }));
+      setEmailStatus('Saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save email connector');
     }
   }
 
@@ -361,11 +432,74 @@ export default function PersonaDetailPage() {
         </div>
         <div className="glass-panel p-6">
           <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
-            Connector Readiness
+            Email Connector
           </h2>
-          <p className="mt-3 text-sm text-[var(--color-text-secondary)]">
-            Configure email, browser, and desktop VM connectors in settings.
-          </p>
+          <form onSubmit={handleSaveEmailConnector} className="mt-4 space-y-3">
+            <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={emailForm.enabled}
+                onChange={(event) => setEmailForm((prev) => ({ ...prev, enabled: event.target.checked }))}
+              />
+              Enabled
+            </label>
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="IMAP host"
+              value={emailForm.imapHost}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, imapHost: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="IMAP port"
+              type="number"
+              value={emailForm.imapPort}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, imapPort: Number(event.target.value) }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="IMAP username"
+              value={emailForm.imapUsername}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, imapUsername: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="IMAP password"
+              type="password"
+              value={emailForm.imapPassword}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, imapPassword: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="SMTP host"
+              value={emailForm.smtpHost}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, smtpHost: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="SMTP port"
+              type="number"
+              value={emailForm.smtpPort}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, smtpPort: Number(event.target.value) }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="SMTP username"
+              value={emailForm.smtpUsername}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, smtpUsername: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="SMTP password"
+              type="password"
+              value={emailForm.smtpPassword}
+              onChange={(event) => setEmailForm((prev) => ({ ...prev, smtpPassword: event.target.value }))}
+            />
+            {emailStatus ? <p className="text-xs text-[var(--color-secondary)]">{emailStatus}</p> : null}
+            <button type="submit" className="neon-button rounded-md px-4 py-2 text-xs">
+              Save email connector
+            </button>
+          </form>
         </div>
       </section>
     </DashboardShell>
