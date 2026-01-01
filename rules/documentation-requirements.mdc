@@ -1,0 +1,375 @@
+---
+description: Documentation requirements for all projects. Copy this to .cursor/rules/ in any project.
+globs: **/*
+alwaysApply: true
+---
+
+# Documentation Requirements
+
+**CRITICAL:** All projects must maintain up-to-date documentation. Documentation must be updated as code is implemented.
+
+## Required Documentation
+
+### 1. Project Documentation
+
+**Location:** Project documentation files (as specified in project-artifacts)
+
+**Update Frequency:** As features are implemented
+
+**Contents:**
+- Project status updates
+- Implementation details
+- Architecture changes
+- API changes
+- Configuration changes
+- **For frontend/UI projects: AI-proof specifications (see Frontend Specification Requirements below)**
+
+### Frontend Specification Requirements (REQUIRED for UI/Frontend Projects)
+
+**CRITICAL:** All projects with UI/frontend components MUST include "AI-proof" specifications in the implementation artifact to prevent common frontend bugs. See [project-artifacts](@project-artifacts) for detailed requirements.
+
+**Minimum Requirements:**
+
+**1. Specification Artifacts (Eliminate UI Ambiguity):**
+- **Feature Specs:** `docs/FEATURE_SPEC.md` per feature (goal, non-goals, user flows, states matrix, Given/When/Then, breakpoints/browsers, analytics, edge cases)
+- **UI Decisions:** `docs/UI_DECISIONS.md` (toast system, form validation style, button disabled rules, error copy conventions, loading skeleton conventions)
+- **Golden Screenshots:** `docs/golden-screenshots/` folder (4-8 reference images: desktop/mobile main screens, empty state, error state, modals/drawers)
+
+**2. Contract Artifacts (Prevent "undefined killed the UI"):**
+- **Schemas:** `contracts/api.schema.ts` (Zod schemas for all API responses)
+- **Examples:** `contracts/examples/*.json` (golden payload examples)
+- **Errors:** `contracts/errors.md` (error codes + user-facing messages)
+
+**3. View Model Artifacts (Frontend data transformation):**
+- **View Models:** `src/viewModels/` directory with transformation functions (e.g., `toUserCardVM(apiUser)`)
+- **Must include tests** for all view model transformations
+
+**4. Mock/Test Data Artifacts (Deterministic dev environment):**
+- **Environment Config:** `.env.example` (template) and `docs/ENV.md` (documentation with allowed values and what breaks if missing)
+- **Mocks:** `mocks/` with MSW handlers, scenarios (`scenarios.ts`), and fixtures (recorded fixtures mode for consistent responses)
+- **Seed Data:** `fixtures/` datasets and `scripts/seed.ts`
+- **Reset Command:** `npm run reset-local` that wipes and reseeds (agents do way better when they can reset to known state)
+- **MSW Scenarios:** Named scenarios (happy, empty, rate_limited, 500, slow) for switching mock states during debugging
+
+**5. Quality Gate Artifacts (Force self-correction):**
+- **QA Script:** `npm run qa` command (typecheck, lint, tests, build, E2E)
+- **CI Workflow:** `.github/workflows/qa.yml` (runs same gate)
+- **PR Checklist:** `.github/pull_request_template.md` (states matrix, tests, E2E, screenshots, no console errors)
+
+**6. Observability Artifacts (Make debugging obvious):**
+- **Error Boundary:** `src/components/ErrorBoundary.tsx` with fallback UI
+- **Debug Panel:** `src/debug/DebugPanel.tsx` (gated behind env flag, shows route, auth, flags, network, errors)
+
+**7. Storybook + Visual Testing Artifacts (Shift left on UI correctness):**
+- **Storybook Config:** `.storybook/` directory with configuration
+- **Stories:** `stories/` directory with one story file per component
+- **Visual Testing:** Chromatic or Playwright visual comparison wired to CI
+- **Purpose:** Turn every story into a test via visual testing, catch UI regressions without hand-checking
+
+**8a. Next.js Specific Artifacts (REQUIRED for Next.js Projects):**
+- **Production E2E Tests:** Playwright config with `webServer: { command: 'npm run build && npm run start' }` to test against production builds
+- **Testcontainers:** `test/integration/` with `@testcontainers/postgresql` for real Postgres in tests (if using Postgres)
+- **Error Handling:** `docs/ERRORS.md` (expected vs fatal errors, server action patterns), `app/**/error.tsx` boundaries
+- **Observability:** `instrumentation.ts` (OpenTelemetry), `docs/AI_DEBUGGING.md` (Next.js DevTools MCP guide for agents)
+
+**9. Agent Guidance Artifacts (Prevent "new session, new rules"):**
+- **Guidance File:** `CLAUDE.md` or `AGENTS.md` at repo root (exact commands, definition of done, file conventions, "don't change without tests" list)
+
+**8. Implementation Artifact Requirements:**
+- States Matrix for every screen/component
+- Acceptance Criteria (Given/When/Then format)
+- Non-Goals and Do Not Assume sections
+- Canonical Examples / Golden Path Payloads (with Zod schemas)
+- Contract-First Types (types.ts + schemas.ts)
+- Standard UI Stack (enforced patterns)
+- Component Contracts (interfaces + state requirements)
+- Assumption Log + Decision Log
+
+**Why These Requirements:**
+- **Specification artifacts** remove ambiguity so agents can't invent behavior
+- **Contract artifacts** prevent "undefined/null" runtime surprises
+- **View models** provide frontend equivalent of backend unit coverage
+- **Mock/test data** make debugging repeatable instead of random (MSW scenarios allow switching states during debugging)
+- **Quality gates** make correctness machine-checkable, prevent "done" without verification
+- **Storybook + visual testing** shift left on UI correctness, catch regressions without hand-checking
+- **Observability** reduces time-to-diagnosis when something slips through
+- **Agent guidance** ensures every run behaves the same
+
+### 2. /docs Folder (REQUIRED)
+
+**CRITICAL:** Every project MUST have a `/docs` folder in the project root with comprehensive documentation.
+
+**Location:** `project-root/docs/`
+
+**Purpose:** Complete documentation so anyone reading it understands:
+- How everything works
+- How to set it all up
+- How to use every part of it
+
+**Required Files in /docs:**
+
+**a. README.md (REQUIRED)**
+- Project overview
+- Quick start guide
+- Setup instructions
+- Usage examples
+- Links to other documentation
+
+**b. SETUP.md (REQUIRED)**
+- Complete setup instructions
+- Prerequisites
+- Installation steps
+- Environment configuration
+- Database setup (if applicable)
+- Service configuration
+- Verification steps
+
+**c. ARCHITECTURE.md (REQUIRED)**
+- System architecture overview
+- Component breakdown
+- Data flow diagrams
+- Technology stack
+- Design decisions
+- How components interact
+
+**d. API.md (If project has API)**
+- All API endpoints
+- Request/response formats
+- Authentication methods
+- Error responses
+- Example requests
+- Rate limits (if applicable)
+- **Link to contract artifacts** (`contracts/api.schema.ts`, `contracts/examples/`, `contracts/errors.md`)
+
+**e. USAGE.md (REQUIRED)**
+- How to use every part of the application
+- Feature documentation
+- User guides
+- Configuration options
+- Troubleshooting
+- Common tasks
+
+**f. DEVELOPMENT.md (REQUIRED)**
+- Development setup
+- Development workflow
+- Testing guidelines
+- Code structure
+- Contributing guidelines
+- Git workflow
+
+**g. DEPLOYMENT.md (REQUIRED)**
+- Deployment process
+- Environment setup
+- Configuration management
+- Monitoring
+- Backup procedures
+- Rollback procedures
+
+**Optional Files:**
+- `SECURITY.md` - Security considerations
+- `TROUBLESHOOTING.md` - Common issues and solutions
+- `CHANGELOG.md` - Version history
+- `CONTRIBUTING.md` - Contribution guidelines
+
+**Update Frequency:**
+- Update `/docs` folder after every major change
+- Keep documentation in sync with code
+- Document new features immediately
+- Update setup instructions when environment changes
+- Update architecture docs when system changes
+
+### 2. Code Documentation
+
+**When Required:**
+- Complex functions or algorithms
+- Public APIs
+- Configuration options
+- Non-obvious code patterns
+
+**Format:**
+- JSDoc for JavaScript/TypeScript
+- Docstrings for Python
+- Comments for complex logic
+- README files for modules
+
+### 3. API Documentation
+
+**When Required:** Projects with APIs
+
+**Contents:**
+- Endpoint specifications
+- Request/response formats
+- Authentication methods
+- Error responses
+- Example requests
+
+**Location:** API artifact or `/docs` directory
+
+### 4. Setup Documentation
+
+**Required:** All projects
+
+**Contents:**
+- Installation steps
+- Environment variables
+- Configuration options
+- Development setup
+- Deployment steps
+
+**Location:** Implementation artifact or README
+
+## Documentation Update Workflow
+
+### During Implementation
+
+1. **Update as you build:**
+   - Update project status when features complete
+   - Document implementation details in `/docs` folder
+   - Note any deviations from spec
+   - Update relevant `/docs` files as you implement
+
+2. **Update /docs folder:**
+   - Update `ARCHITECTURE.md` when architecture changes
+   - Update `API.md` when API endpoints are added/changed
+   - Update `USAGE.md` when features are added
+   - Update `SETUP.md` when setup process changes
+   - Update `DEVELOPMENT.md` when development workflow changes
+
+3. **Update progress artifacts:**
+   - Update progress tracking (if applicable)
+   - Note what was completed
+   - Note any blockers
+
+### After Implementation
+
+1. **Update /docs folder (MANDATORY):**
+   - Update `README.md` with new features
+   - Update `ARCHITECTURE.md` if architecture changed
+   - Update `API.md` if API changed
+   - Update `USAGE.md` with how to use new features
+   - Update `SETUP.md` if setup process changed
+   - Update `DEVELOPMENT.md` if development workflow changed
+   - Ensure all `/docs` files are comprehensive and up-to-date
+
+2. **Update project documentation:**
+   - Update main project file status
+   - Update relevant artifacts
+   - Document implementation details
+
+3. **Update code documentation:**
+   - Add JSDoc/docstrings where needed
+   - Update README files
+   - Document complex logic
+
+4. **Update API documentation:**
+   - Update API artifact (if applicable)
+   - Update `/docs/API.md` (if applicable)
+   - Document new endpoints
+   - Update request/response examples
+
+## Documentation Standards
+
+### /docs Folder Structure
+
+**Required Structure:**
+```
+project-root/
+└── docs/
+    ├── README.md          # Overview and quick start
+    ├── SETUP.md           # Complete setup instructions
+    ├── ARCHITECTURE.md    # System architecture
+    ├── USAGE.md           # How to use everything
+    ├── DEVELOPMENT.md     # Development workflow
+    ├── DEPLOYMENT.md      # Deployment process
+    └── API.md             # API documentation (if applicable)
+```
+
+**Each file should be comprehensive:**
+- Complete enough for someone new to understand
+- Include examples where helpful
+- Keep up-to-date with code changes
+- Use clear, simple language
+
+### Code Comments
+
+**When to Comment:**
+- Complex algorithms
+- Non-obvious code patterns
+- Workarounds or hacks
+- Business logic that's not obvious
+
+**When NOT to Comment:**
+- Self-explanatory code
+- Obvious implementations
+- Code that should be refactored instead
+
+### README Files
+
+**Required Sections:**
+- Project description
+- Installation/setup
+- Usage examples
+- Configuration
+- Development setup
+
+### API Documentation
+
+**Required Information:**
+- Endpoint URL and method
+- Request parameters
+- Response format
+- Error responses
+- Example requests/responses
+
+## Integration with Project Documentation
+
+**Follow project-artifacts structure:**
+- Update artifacts as specified
+- Maintain artifact links
+- Keep documentation organized
+
+**/docs folder complements project artifacts:**
+- Project artifacts: High-level design and planning
+- `/docs` folder: Detailed implementation and usage documentation
+- Both should be kept in sync
+
+**Check project-specific cursor rules** for:
+- Project-specific documentation requirements
+- Documentation format preferences
+- Documentation location preferences
+
+## Creating /docs Folder
+
+**When creating a new project:**
+1. Create `/docs` directory in project root
+2. Create all required documentation files
+3. Start with templates/skeletons
+4. Fill in as project is built
+
+**Template Structure:**
+```markdown
+# docs/README.md
+## Project Name
+[Overview]
+
+## Quick Start
+[Quick setup]
+
+## Documentation
+- [Setup Guide](SETUP.md)
+- [Architecture](ARCHITECTURE.md)
+- [Usage Guide](USAGE.md)
+- [Development](DEVELOPMENT.md)
+- [Deployment](DEPLOYMENT.md)
+```
+
+**Keep /docs updated:**
+- Update after every major change
+- Ensure all files are comprehensive
+- Test that documentation is accurate
+- Verify setup instructions work
+
+## Related Rules
+
+- [project-implementation](@project-implementation) - Implementation workflow
+- Project-specific cursor rules - Project-specific documentation requirements

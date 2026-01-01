@@ -1,0 +1,761 @@
+---
+description: General guidelines for AI assistants when building/implementing projects using project documentation. Copy this to .cursor/rules/ in any project.
+globs: **/*
+alwaysApply: true
+---
+
+# Project Implementation Guide
+
+**CRITICAL:** When a user asks you to build or implement a project, you MUST first locate and read the project documentation. Use codebase search to find project documentation - do not rely on hardcoded paths.
+
+**AUTONOMOUS PROGRESSION:** Once implementation begins, work autonomously through ALL stages without stopping to ask permission. Continue from stage to stage until the entire project is built, tested, and complete. Only stop if there is a critical blocker that prevents any progress.
+
+## Initial VM Setup (First Time Only)
+
+**CRITICAL:** Before building any project, ensure the VM is properly set up with all required tools. This setup is typically done once per VM.
+
+### Setup Checklist
+
+**Required Tools:**
+- [ ] Node.js and npm installed
+- [ ] GitHub CLI installed and authenticated
+- [ ] PM2 installed and configured for persistence
+- [ ] PostgreSQL installed and running
+- [ ] All tools verified working
+
+### Setup Process
+
+#### 1. Install Node.js and npm
+
+**Check if installed:**
+```bash
+node --version
+npm --version
+```
+
+**If not installed, install Node.js:**
+```bash
+# Ask user for sudo password if needed
+# For Ubuntu/Debian:
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -S bash -
+sudo -S apt-get install -y nodejs
+
+# Verify installation
+node --version
+npm --version
+```
+
+**Note:** If sudo password is required, ask user: "Please provide your sudo password to install Node.js and npm"
+
+#### 2. Install GitHub CLI
+
+**Check if installed:**
+```bash
+gh --version
+```
+
+**If not installed, install GitHub CLI:**
+```bash
+# Ask user for sudo password if needed
+# For Ubuntu/Debian:
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo -S dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+sudo -S chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo -S tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo -S apt update
+sudo -S apt install gh -y
+
+# Verify installation
+gh --version
+```
+
+**Note:** If sudo password is required, ask user: "Please provide your sudo password to install GitHub CLI"
+
+#### 3. Authenticate GitHub CLI
+
+**Check authentication status:**
+```bash
+gh auth status
+```
+
+**If not authenticated, authenticate:**
+```bash
+# Start authentication flow
+gh auth login
+
+# The command will prompt interactively:
+# 1. "What account do you want to log into?" → Select "GitHub.com"
+# 2. "What is your preferred protocol for Git operations?" → Select "HTTPS"
+# 3. "Authenticate Git with your GitHub credentials?" → Select "Yes" or "No" (your choice)
+# 4. "How would you like to authenticate GitHub CLI?" → Select "Login with a web browser"
+# 5. The command will display:
+#    - A URL to visit (e.g., https://github.com/login/device)
+#    - A one-time code (e.g., ABCD-1234)
+#
+# CRITICAL: At this point, you MUST:
+# - Tell the user: "Please visit [URL] and enter code [CODE] to authenticate GitHub CLI"
+# - Wait for the user to confirm they have completed the authentication
+# - The command will wait for authentication to complete
+# - Once authenticated, you'll see a success message
+```
+
+**Important:** 
+- The `gh auth login` command will provide a URL and one-time code
+- **You MUST explicitly tell the user:** "Please visit [URL] and enter code [CODE] to authenticate GitHub CLI"
+- Wait for user confirmation that they have completed authentication
+- The command will automatically complete once user authenticates in browser
+- Verify authentication with `gh auth status` after completion
+
+**Make GitHub CLI Authentication Persistent:**
+```bash
+# After successful authentication, verify credentials are saved
+gh auth status
+
+# GitHub CLI automatically saves credentials to:
+# - ~/.config/gh/hosts.yml (host configuration)
+# - ~/.config/gh/ (authentication tokens)
+# 
+# These are automatically persisted, so user won't need to log in again
+# Verify persistence by checking auth status after authentication
+gh auth status
+```
+
+**Note:** GitHub CLI credentials are automatically saved and persist across sessions. The user should not need to log in again unless they explicitly log out or credentials are revoked.
+
+#### 4. Install PM2
+
+**Check if installed:**
+```bash
+pm2 --version
+```
+
+**If not installed, install PM2:**
+```bash
+# Install globally with npm (no sudo needed)
+npm install -g pm2
+
+# Verify installation
+pm2 --version
+```
+
+#### 5. Configure PM2 for Persistence
+
+**Set up PM2 to start on system boot:**
+```bash
+# Ask user for sudo password if needed
+# Generate startup script
+pm2 startup
+
+# The command will output a command like:
+# sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u username --hp /home/username
+
+# Run the provided command (will need sudo password)
+# Ask user: "Please provide your sudo password to configure PM2 startup"
+
+# Save current PM2 process list
+pm2 save
+```
+
+**Verify PM2 persistence:**
+```bash
+# Check PM2 status
+pm2 status
+
+# Verify startup script exists
+pm2 startup
+```
+
+**Note:** PM2 will now automatically start on system reboot and restore saved processes.
+
+#### 6. Install PostgreSQL
+
+**Check if installed:**
+```bash
+psql --version
+```
+
+**If not installed, install PostgreSQL:**
+```bash
+# Ask user for sudo password if needed
+# For Ubuntu/Debian:
+sudo -S apt update
+sudo -S apt install postgresql postgresql-contrib -y
+
+# Verify installation
+psql --version
+
+# Check if PostgreSQL is running
+sudo -S systemctl status postgresql
+```
+
+**Start PostgreSQL (if not running):**
+```bash
+sudo -S systemctl start postgresql
+sudo -S systemctl enable postgresql
+```
+
+**Note:** If sudo password is required, ask user: "Please provide your sudo password to install PostgreSQL"
+
+**Configure PostgreSQL (optional but recommended):**
+```bash
+# Set up PostgreSQL user and database (if needed for project)
+# This is typically done per-project, but can be done here if needed
+sudo -u postgres psql
+# Then create user/database as needed
+```
+
+#### 7. Verify All Installations
+
+**Run verification checks:**
+```bash
+# Node.js and npm
+node --version
+npm --version
+
+# GitHub CLI
+gh --version
+gh auth status
+
+# PM2
+pm2 --version
+pm2 status
+
+# PostgreSQL
+psql --version
+sudo systemctl status postgresql
+```
+
+**If any tool is missing or not working:**
+- Re-run installation steps
+- Check for error messages
+- Ask user for help if issues persist
+
+#### 8. Create .gitignore for Node Projects
+
+**CRITICAL:** Create a `.gitignore` file in project root to exclude unnecessary files from git tracking.
+
+**Create `.gitignore` file:**
+```bash
+# Option 1: Copy from template (if available)
+cp brain/resources/project-cursor-rules/.gitignore-template .gitignore
+
+# Option 2: Create manually
+cat > .gitignore << 'EOF'
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cursor rules (project-specific, not tracked)
+.cursor/
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# PM2
+.pm2/
+EOF
+```
+
+**Important:**
+- `.cursor/` folder is excluded so project-specific cursor rules are not tracked
+- Node modules, build outputs, and environment files are excluded
+- This prevents committing sensitive or unnecessary files
+
+**Verify .gitignore:**
+```bash
+# Check .gitignore exists
+cat .gitignore
+
+# Verify .cursor is in .gitignore
+grep -i "\.cursor" .gitignore
+```
+
+### Setup Complete
+
+**Once all tools are installed and verified:**
+- Document setup completion
+- Note any custom configurations
+- Save setup information for future reference
+
+**Verification Commands:**
+```bash
+# Verify all tools are installed and working
+echo "=== Node.js and npm ==="
+node --version
+npm --version
+
+echo "=== GitHub CLI ==="
+gh --version
+gh auth status
+
+echo "=== PM2 ==="
+pm2 --version
+pm2 status
+
+echo "=== PostgreSQL ==="
+psql --version
+sudo systemctl status postgresql
+
+echo "=== .gitignore ==="
+cat .gitignore | grep -i "\.cursor"
+```
+
+**Setup is typically done once per VM.** After initial setup, skip to "Finding Project Documentation" section below.
+
+**Note:** If any tool fails to install or verify, ask the user for help or check error messages for troubleshooting steps.
+
+## Finding Project Documentation
+
+**CRITICAL:** Use codebase search to locate project documentation. Do not assume file locations.
+
+**Search Pattern:**
+1. Search for project name: `codebase_search("project-name documentation", [])`
+2. Look for main project file (usually `project-name.md` or similar)
+3. Follow links to artifacts from main file
+
+**What to Read:**
+1. **Main project file** - Overview, concept, status, and links to all artifacts
+2. **Architecture artifact** - System design, component breakdown, technology choices
+3. **Implementation artifact** - Setup steps, project structure, coding patterns, deployment
+4. **Specific artifacts** - API, smart contracts, security, etc. as needed for your task
+5. **Project-specific cursor rules** - Check `.cursor/rules/` for project-specific guidelines
+
+**Reading Order:**
+1. Main project file (overview and current status)
+2. Architecture artifact (system design and technology stack)
+3. Implementation artifact (setup, patterns, structure)
+4. Project-specific cursor rules (styling, libraries, versions)
+5. Specific artifacts as needed (API, contracts, security, etc.)
+
+## Understanding Project Documentation
+
+### Key Information to Extract
+
+**1. Technology Stack**
+- **Exact versions:** Note exact versions specified (e.g., "React 18.2.0", not just "React")
+- **Why chosen:** Understand reasoning for technology choices
+- **Dependencies:** Note all dependencies and their versions
+- **Check project-specific cursor rules** for version requirements
+
+**2. Architecture & Design**
+- **Component structure:** How components are organized
+- **Data flow:** How data moves through the system
+- **Patterns:** What architectural patterns are used
+- **Interactions:** How components interact
+
+**3. Implementation Details**
+- **Project structure:** Exact directory layout
+- **Coding patterns:** Conventions, style, patterns to follow
+- **Setup steps:** Exact commands and configuration
+- **Environment variables:** All required variables with examples
+- **Project-specific patterns:** Check project-specific cursor rules
+
+**4. Specifications**
+- **API endpoints:** Exact request/response formats
+- **Database schema:** Exact field types, constraints, indexes
+- **Smart contracts:** Exact function signatures, events, state
+- **Data structures:** Exact formats and validation rules
+
+**5. Decisions Made**
+- **Why decisions were made:** Understand reasoning
+- **Trade-offs:** What was gained/lost with decisions
+- **Alternatives considered:** What other options were evaluated
+
+## Testing Requirements
+
+**CRITICAL:** All projects MUST achieve 90%+ test coverage including E2E Playwright tests. See [testing-requirements](@testing-requirements) for detailed requirements.
+
+**Minimum Requirements:**
+- **Unit tests:** >90% coverage for all code
+- **Integration tests:** All critical paths covered
+- **E2E tests:** All critical user flows covered with Playwright
+
+**CRITICAL:** Every feature implementation MUST include its tests as part of the same work. Tests are not built after features - they are built alongside features. When you implement a feature, you write the tests for that feature at the same time. Do not wait to build tests - build tests as you build features.
+
+## Code Quality Requirements
+
+**CRITICAL:** All code must pass quality checks before committing. See [code-quality](@code-quality) for detailed requirements.
+
+**Minimum Requirements:**
+- Code passes linting
+- Code is properly formatted
+- No TypeScript/compilation errors
+- No console.logs or debug code
+- All imports are used
+
+## Implementation Workflow
+
+### Before Starting
+
+1. **Create Test Plan (REQUIRED - Part of Planning Phase):**
+   - **CRITICAL:** Before implementing any feature, create a test plan
+   - List all tests needed (unit, integration, E2E, visual, accessibility)
+   - List all states to test (from states matrix: loading, empty, error, success, unauthorized, offline)
+   - List all user flows to test
+   - List all MSW scenarios needed (happy, empty, rate_limited, 500, slow)
+   - List accessibility checks needed
+   - List visual regression snapshots needed
+   - **This is part of planning, not a later step**
+   - See [testing-requirements](@testing-requirements) for test planning details
+
+2. **Verify VM Setup (First Time Only):**
+   - Check if Node.js, npm, GitHub CLI, PM2, and PostgreSQL are installed
+   - If not, follow "Initial VM Setup" section above
+   - Verify all tools are working
+
+3. **Verify Project Cursor Rules Are Present:**
+   - **CRITICAL:** Check that general rules are copied to `.cursor/rules/`:
+     - `project-implementation.mdc` (this file)
+     - `testing-requirements.mdc`
+     - `code-quality.mdc`
+     - `documentation-requirements.mdc`
+     - `project-specific.mdc` (project-specific rules)
+   - If rules are missing, copy them from `brain/resources/project-cursor-rules/`:
+     ```bash
+     cp brain/resources/project-cursor-rules/project-implementation.mdc .cursor/rules/
+     cp brain/resources/project-cursor-rules/testing-requirements.mdc .cursor/rules/
+     cp brain/resources/project-cursor-rules/code-quality.mdc .cursor/rules/
+     cp brain/resources/project-cursor-rules/documentation-requirements.mdc .cursor/rules/
+     cp brain/resources/project-cursor-rules/self-improve.mdc .cursor/rules/
+     cp brain/resources/project-cursor-rules/cursor-rules.mdc .cursor/rules/
+     ```
+   - **Why:** Projects must be self-contained. General rules should be copied into each project so the project can be moved to a new VM and built without needing the original workspace.
+
+3. **Initialize Project Structure:**
+   - Create `/docs` folder with required documentation files (see documentation requirements)
+   - **For frontend projects:** Create feature spec templates, UI_DECISIONS.md, golden-screenshots folder
+   - **For all projects:** Create `.env.example` (template) and `docs/ENV.md` (documentation with allowed values and what breaks if missing)
+   - **For projects with APIs:** Create `contracts/` directory with schemas, examples, errors.md
+   - **For frontend projects:** Create `src/viewModels/` directory structure
+   - **For frontend projects:** Create `mocks/` directory with MSW handlers, scenarios (`scenarios.ts`), and fixtures (recorded fixtures mode)
+   - **For frontend projects:** Create `fixtures/` directory and seed scripts
+   - **For frontend projects:** Create Storybook setup (`.storybook/` config, `stories/` directory)
+   - **For Postgres projects:** Create Testcontainers setup (`test/integration/` directory, `@testcontainers/postgresql`)
+   - **For Next.js projects:** Create `instrumentation.ts` (OpenTelemetry), `docs/ERRORS.md` (error patterns), `docs/AI_DEBUGGING.md` (MCP guide)
+   - **For all projects:** Create quality gate (`npm run qa`), CI workflow (`.github/workflows/qa.yml`), PR template (`.github/pull_request_template.md`)
+   - **For frontend projects:** Create observability artifacts (ErrorBoundary, DebugPanel)
+   - **For all projects:** Create agent guidance file (`CLAUDE.md` or `AGENTS.md`) at repo root
+   - Create `.gitignore` file (if not exists) - ensure `.cursor/` is excluded
+   - Initialize git repository (if not already initialized)
+   - Set up project structure as specified in implementation artifact
+
+4. **Find Project Documentation:**
+   - Use codebase search to locate project files
+   - Read main project file
+   - Read relevant artifacts
+   - Read project-specific cursor rules
+
+5. **Verify Environment:**
+   - Check prerequisites are installed (beyond VM setup)
+   - Run setup commands from documentation
+   - Verify environment variables
+   - Test that setup works
+
+6. **Understand Context:**
+   - What's already built?
+   - What's in progress?
+   - What should you work on next?
+
+### During Implementation
+
+1. **Follow Exact Specifications:**
+   - Use exact versions from documentation
+   - Follow exact project structure
+   - Follow coding patterns specified
+   - Follow project-specific cursor rules
+
+2. **Test-Driven Development (TDD) - MANDATORY:**
+   - Write failing test FIRST
+   - Write minimal code to pass
+   - Refactor while keeping tests green
+   - Repeat until feature complete
+   - **CRITICAL: Do not implement features without tests**
+
+3. **Tests Built WITH Features - REQUIRED:**
+   - **Every feature must include its tests in the same implementation**
+   - Unit tests written for each function/component as you build it
+   - Integration tests written for interactions as you build them
+   - E2E Playwright tests written for user flows as part of feature implementation
+   - **DO NOT implement a feature and then "add tests later" - tests are part of the feature implementation**
+   - Achieve 90%+ coverage with tests written alongside code
+
+4. **Verify Build & Runtime:**
+   - Run build command (must succeed)
+   - Start development server (must work)
+   - Verify application is accessible
+   - Test basic functionality
+
+5. **Code Quality Checks:**
+   - Run linting (must pass)
+   - Run formatting (must pass)
+   - Check for TypeScript errors
+   - Remove debug code
+
+6. **After Every Feature Implementation - Quality Gate Loop (Run → Fail → Fix):**
+   - **CRITICAL:** Every feature implementation includes its tests. After completing a feature (code + tests), follow this exact workflow:
+   
+   **Quality Gate Command (REQUIRED):**
+   - Run the quality gate: `npm run qa` (or equivalent: `npm run quality`, `npm run ship`)
+   - The quality gate should run (in order):
+     1. Typecheck (strict TypeScript)
+     2. Lint (ESLint)
+     3. Unit/component tests
+     4. Integration tests (if Postgres: uses Testcontainers for real DB)
+     5. Build (Next.js: production build)
+     6. E2E tests (Playwright - Next.js: against production build via webServer config)
+     7. (Optional) Visual regression tests
+   
+   **Next.js Specific:**
+   - E2E tests MUST run against production builds (not dev server)
+   - Playwright `webServer` config handles `build → start` automatically
+   - Quality gate for Next.js: `npm run typecheck && npm run lint && npm test && npm run test:integration && npm run test:e2e`
+   - Playwright config must use `webServer: { command: 'npm run build && npm run start' }`
+   
+   **Run → Fail → Fix Loop:**
+     1. **Run quality gate:** `npm run qa`
+     2. **If any step fails:** Fix the issue immediately
+     3. **Re-run quality gate:** Iterate until ALL steps pass
+     4. **Paste output as evidence:** Do not claim "done" without pasting the command output
+     5. **Commit changes (code + tests together):** `git add . && git commit -m "type(scope): description"`
+     6. **Push to GitHub:** `git push` (or `gh repo sync`)
+   
+   **This workflow is MANDATORY after every feature implementation. Do not skip any step.**
+   **REMEMBER: You are not done until `npm run qa` passes and you provide the output as evidence.**
+   **REMEMBER: Features and their tests are committed together - tests are part of the feature, not separate.**
+   
+   **If quality gate command doesn't exist:**
+   - Create it in `package.json` as a single command that runs all checks
+   - **For Next.js:** `"qa": "npm run typecheck && npm run lint && npm test && npm run test:integration && npm run test:e2e"`
+   - **For other projects:** `"qa": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e"`
+   - **Next.js Note:** Playwright `webServer` config handles build + start automatically
+   
+   **Commit Message Format:**
+   - `feat(scope): description` - New feature
+   - `fix(scope): description` - Bug fix
+   - `test(scope): description` - Adding tests
+   - `refactor(scope): description` - Code refactoring
+   - `docs(scope): description` - Documentation
+   - `chore(scope): description` - Maintenance
+   - `build(scope): description` - Build system changes
+
+### After Implementation
+
+1. **Update Documentation:**
+   - Update project status in main project file
+   - Update `/docs` folder with implementation details (see documentation requirements)
+   - Update progress artifacts (if applicable)
+   - Document implementation details
+
+2. **Verify Everything Works:**
+   - All tests pass
+   - Coverage is 90%+
+   - Build succeeds
+   - Application runs
+   - No regressions
+
+3. **Test, Build, Fix, Commit, Push Workflow:**
+   - Run all tests: `npm test`
+   - Fix any failing tests
+   - Run build: `npm run build`
+   - Fix any build errors
+   - Commit: `git add . && git commit -m "type(scope): description"`
+   - Push: `git push`
+
+## Definition of Done
+
+**You are NOT done with a feature until ALL of the following are true:**
+
+1. **Quality Gate Passes:**
+   - Run `npm run qa` (or equivalent quality gate command)
+   - All steps pass: typecheck, lint, tests, build, E2E tests
+   - Paste the command output as evidence
+   - Iterate (run → fail → fix) until ALL checks pass
+
+2. **Tests Built WITH Feature:**
+   - Unit tests written WITH feature implementation
+   - Integration tests written WITH feature implementation
+   - E2E Playwright tests written WITH feature implementation (using stable selectors)
+   - Visual regression tests added (if applicable)
+
+3. **All Checks Pass:**
+   - Typecheck passes (strict TypeScript)
+   - Lint passes (ESLint)
+   - All tests pass (unit, integration, E2E)
+   - Build succeeds
+   - Test coverage is 90%+
+
+4. **Code Quality:**
+   - Application runs without errors
+   - Code quality checks pass (linting, formatting, TypeScript)
+   - No console.logs or debug code
+
+5. **Verification:**
+   - Regression testing completed (1-2 previously completed features)
+   - Code and tests committed together (tests are part of features, not separate)
+
+**Do not claim "done" without:**
+- Running the quality gate command
+- Having ALL checks pass
+- Pasting the command output as evidence
+
+## Stage Completion Checklist
+
+**Before marking a stage as complete:**
+
+- [ ] Test plan created before implementation (part of planning phase)
+- [ ] Quality gate command exists (`npm run qa` or equivalent)
+- [ ] Quality gate command passes - **paste output as evidence**
+- [ ] All code implemented according to specifications (WITH tests - tests built alongside features)
+- [ ] All unit tests written WITH feature implementation and passing
+- [ ] All integration tests written WITH feature implementation and passing
+- [ ] All E2E Playwright tests written WITH feature implementation (using stable selectors: role/text/testid)
+- [ ] Accessibility scans pass (axe + Playwright)
+- [ ] Playwright traces configured (`trace: 'on-first-retry'`)
+- [ ] Deterministic UI runs configured (`reducedMotion: 'reduce'`, stable states)
+- [ ] MSW scenarios created for all test cases (happy, empty, rate_limited, 500, slow)
+- [ ] Storybook stories created for all component states
+- [ ] Visual regression tests added (if applicable)
+- [ ] Test coverage is 90%+ (verify with coverage report)
+- [ ] Typecheck passes (strict TypeScript)
+- [ ] Lint passes (ESLint)
+- [ ] **All tests pass:** Run full test suite, fix any failures
+- [ ] **Build succeeds:** Run build command, fix any errors
+- [ ] Application runs without errors
+- [ ] Code quality checks pass (linting, formatting, TypeScript)
+- [ ] Regression testing completed (1-2 previously completed features)
+- [ ] Code and tests committed together (tests are part of features, not separate)
+- [ ] **CRITICAL: Do not claim "done" without running quality gate and pasting output showing all checks pass**
+- [ ] **Documentation updated:** `/docs` folder updated with implementation details
+- [ ] **Changes committed:** `git add . && git commit -m "type(scope): description"`
+- [ ] **Changes pushed:** `git push` to GitHub
+- [ ] **IMMEDIATELY proceed to next stage** (don't ask permission)
+
+## Autonomous Progression
+
+**CRITICAL:** Work autonomously through all stages without stopping.
+
+**Rules:**
+- Don't stop between stages
+- Don't ask for permission
+- Make decisions from documentation
+- Only stop for critical blockers
+- Complete full implementation before stopping
+
+**When to Ask Questions (Rare):**
+- Critical information missing and prevents all progress
+- Conflicting specifications that cannot be resolved
+- Technical blocker that cannot be solved
+
+**When NOT to Ask:**
+- Minor implementation details (infer from docs)
+- Between stages (just proceed)
+- For approval to continue (just continue)
+
+## After Every Major Change - Mandatory Workflow
+
+**CRITICAL:** After every major change, you MUST follow this exact workflow. Do not skip any step.
+
+### Workflow Steps
+
+1. **Run All Tests:**
+   ```bash
+   npm test
+   # or project-specific test command
+   ```
+
+2. **Verify All Tests Pass:**
+   - If any tests fail, fix them immediately
+   - Do not proceed until all tests pass
+   - Re-run tests after fixes
+
+3. **Run Build:**
+   ```bash
+   npm run build
+   # or project-specific build command
+   ```
+
+4. **Verify Build Succeeds:**
+   - If build fails, fix errors immediately
+   - Do not proceed until build succeeds
+   - Re-run build after fixes
+
+5. **Fix Any Issues:**
+   - Fix all test failures
+   - Fix all build errors
+   - Verify fixes work
+   - Re-run tests and build until everything passes
+
+6. **Update Documentation:**
+   - Update `/docs` folder with changes
+   - Update relevant documentation files
+   - Ensure documentation is comprehensive
+
+7. **Commit Changes:**
+   ```bash
+   git add .
+   git commit -m "type(scope): description"
+   ```
+   - Use proper commit message format
+   - Include all changes (code, tests, docs)
+
+8. **Push to GitHub:**
+   ```bash
+   git push
+   # or
+   gh repo sync
+   ```
+
+**This workflow is MANDATORY.** Do not skip any step. The quality gate must pass (typecheck, lint, tests, build, E2E), and you must paste the output as evidence. All tests must pass, build must succeed, and changes must be committed and pushed before moving to the next task.
+
+## Integration
+
+- **Testing Requirements:** See [testing-requirements](@testing-requirements)
+- **Code Quality:** See [code-quality](@code-quality)
+- **Documentation:** See [documentation-requirements](@documentation-requirements) - includes `/docs` folder requirements
+- **Project-Specific Rules:** Check `.cursor/rules/` for project-specific guidelines

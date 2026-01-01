@@ -1,0 +1,707 @@
+---
+description: Mandatory testing requirements for all projects - 90%+ coverage including E2E Playwright tests. Copy this to .cursor/rules/ in any project.
+globs: **/*
+alwaysApply: true
+---
+
+# Testing Requirements
+
+**CRITICAL:** All projects MUST achieve 90%+ test coverage including E2E Playwright tests. Testing is mandatory at all levels.
+
+**TEST-FIRST APPROACH:** Every feature implementation MUST include its tests as part of the same work. Tests are not built after features - they are built alongside features. When you implement a feature, you write the tests for that feature at the same time. Do not wait to build tests - build tests as you build features.
+
+**DEFINITION OF DONE:** You are not done with a feature until the quality gate passes. Run the quality gate command, iterate on failures, and provide evidence (command outputs) that everything passes. Do not claim "done" without pasting the command outputs showing all checks pass.
+
+## Quality Gate (REQUIRED)
+
+**CRITICAL:** Every project MUST have a single "quality gate" command that represents "ship it." This command runs all checks and must pass before any feature is considered complete.
+
+**Required Quality Gate Command:** `npm run qa` (or equivalent: `npm run quality`, `npm run ship`, etc.)
+
+**Quality Gate Must Include (in order):**
+1. Typecheck (strict TypeScript)
+2. Lint (ESLint)
+3. Unit/component tests
+4. Build
+5. E2E tests (Playwright)
+6. (Optional but highly recommended) Visual regression tests
+
+**Implementation Example:**
+```json
+// package.json
+{
+  "scripts": {
+    "qa": "npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e && npm run test:visual",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --coverage",
+    "build": "npm run build",
+    "test:e2e": "playwright test",
+    "test:visual": "chromatic --project-token=YOUR_TOKEN"
+  }
+}
+```
+
+**Note:** Visual regression tests (Storybook + Chromatic) are optional but highly recommended. If not using Chromatic, you can use Playwright visual comparison instead. If visual tests are not set up, omit `&& npm run test:visual` from the qa command.
+
+**Workflow:** Run `npm run qa` after every feature implementation. If any step fails, fix the issue and re-run. Iterate until all steps pass. You are not done until `npm run qa` passes and you paste the output.
+
+## Test Coverage Requirement
+
+**Minimum: 90% Coverage**
+- **Unit tests:** >90% line, branch, and function coverage
+- **Integration tests:** All critical paths covered
+- **E2E tests:** All critical user flows covered with Playwright
+- **Coverage verification:** Must verify coverage with coverage tools before proceeding
+
+## Test Pyramid Structure
+
+### 1. Unit Tests (Foundation)
+
+**When:** Write WITH each function/component implementation - tests are part of the feature, not a separate step
+
+**What:** Test individual functions, methods, components in isolation
+
+**Tools:** Jest, Vitest, or project-specific unit testing framework
+
+**Coverage:** Every function, method, and component should have unit tests
+
+**Location:** Co-located with code or in `__tests__`/`tests` directories
+
+**Example:**
+```typescript
+// Component: src/components/Button.tsx
+// Test: src/components/__tests__/Button.test.tsx
+
+import { render, screen } from '@testing-library/react';
+import { Button } from './Button';
+
+test('renders button with text', () => {
+  render(<Button>Click me</Button>);
+  expect(screen.getByText('Click me')).toBeInTheDocument();
+});
+```
+
+### 2. Integration Tests (Middle Layer)
+
+**When:** Write WITH the implementation of component interactions - tests are built as you build the integration, not after
+
+**What:** Test component interactions, API endpoints, database operations
+
+**Tools:** Same as unit tests, with additional setup for integration scenarios
+
+**Coverage:** All API endpoints, database operations, component integrations
+
+**Example:**
+```typescript
+// Test API endpoint with database
+test('POST /api/users creates user', async () => {
+  const response = await request(app)
+    .post('/api/users')
+    .send({ name: 'Test User', email: 'test@example.com' });
+  
+  expect(response.status).toBe(201);
+  expect(response.body).toHaveProperty('id');
+});
+```
+
+### 3. End-to-End (E2E) Tests (Top Layer) - REQUIRED
+
+**When:** Write WITH the implementation of complete user flows - E2E tests are part of the feature implementation, not a separate step
+
+**What:** Test critical user journeys from start to finish
+
+**Tools:** Playwright (REQUIRED - must be used for all projects)
+
+**Coverage:** All critical user flows, authentication flows, main features
+
+**Location:** `tests/e2e/` or `e2e/` directory
+
+**Setup:**
+```bash
+npm install -D @playwright/test
+npx playwright install
+```
+
+**Configuration:** Create `playwright.config.ts` or `playwright.config.js`
+
+**Playwright Best Practices (REQUIRED):**
+- Test user-visible behavior (what users see and interact with)
+- Keep tests isolated (each test should be independent)
+- Avoid testing third-party dependencies (mock external services)
+- Use resilient locators (PREFER role/text/testid over CSS/XPath selectors)
+  - ✅ `page.getByRole('button', { name: 'Submit' })`
+  - ✅ `page.getByText('Welcome back')`
+  - ✅ `page.getByTestId('login-form')`
+  - ❌ `page.locator('button.btn-primary')`
+  - ❌ `page.locator('//button[@class="submit"]')`
+- **Accessibility scans:** Use axe + Playwright to catch missing labels, duplicate IDs, contrast issues
+- **Trace recording:** Record traces on first retry in CI (`trace: 'on-first-retry'`) so failures are cheap to diagnose
+- **Deterministic UI runs:** Disable/reduce animations (`reducedMotion: 'reduce'`), wait for stable states (`networkidle`, stable DOM), make fonts/time deterministic where possible
+
+**Example (Using Best Practices):**
+```typescript
+import { test, expect } from '@playwright/test';
+import { injectAxe, checkA11y } from 'axe-playwright';
+
+test.describe('User Authentication', () => {
+  test('should login successfully', async ({ page }) => {
+    await page.goto('/login');
+    
+    // Use role-based selectors (resilient to CSS changes)
+    await page.getByRole('textbox', { name: /email/i }).fill('user@example.com');
+    await page.getByRole('textbox', { name: /password/i }).fill('password123');
+    await page.getByRole('button', { name: /sign in|login/i }).click();
+    
+    // Wait for stable state (networkidle, stable DOM)
+    await page.waitForLoadState('networkidle');
+    
+    // Assert user-visible outcomes
+    await expect(page.getByText('Welcome back')).toBeVisible();
+    await expect(page).toHaveURL('/dashboard');
+    
+    // Accessibility scan
+    await injectAxe(page);
+    await checkA11y(page);
+  });
+  
+  test('should show error for invalid credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('textbox', { name: /email/i }).fill('invalid@example.com');
+    await page.getByRole('textbox', { name: /password/i }).fill('wrong');
+    await page.getByRole('button', { name: /sign in|login/i }).click();
+    
+    // Wait for error state to be visible
+    await page.waitForLoadState('networkidle');
+    
+    // Test error state (user-visible)
+    await expect(page.getByText(/invalid.*credentials/i)).toBeVisible();
+  });
+});
+```
+
+**Playwright Configuration for Deterministic UI Runs:**
+```typescript
+// playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // Disable/reduce animations for deterministic runs
+    reducedMotion: 'reduce',
+    // Record traces on first retry (for debugging failures)
+    trace: 'on-first-retry',
+    baseURL: 'http://localhost:3000',
+  },
+  // Wait for stable states
+  expect: {
+    timeout: 5000,
+  },
+  // Retries for flaky tests (trace recording on first retry)
+  retries: 1,
+});
+```
+
+**Next.js Specific: E2E Tests Against Production Builds (REQUIRED for Next.js Projects)**
+
+**CRITICAL:** Next.js explicitly recommends running E2E tests against production builds to catch real Next.js behavior, not just dev server behavior.
+
+**Required Playwright Configuration for Next.js:**
+```typescript
+// playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry', // Trace recording on first retry
+    reducedMotion: 'reduce',
+  },
+  retries: 1, // Retry once for flaky tests
+  webServer: {
+    // CRITICAL: Use production build, not dev server
+    command: 'npm run build && npm run start',
+    url: 'http://localhost:3000',
+    timeout: 120 * 1000, // 2 minutes for build + start
+    reuseExistingServer: !process.env.CI, // Reuse in local dev, always restart in CI
+  },
+});
+```
+
+**Why Production Builds:**
+- Catches real Next.js behavior (optimization, SSR, routing)
+- Catches build errors that dev server doesn't reveal
+- Matches production environment more closely
+- Next.js production checklist recommends this pattern
+
+**Quality Gate for Next.js:**
+```json
+{
+  "scripts": {
+    "qa": "npm run lint && npm run typecheck && npm test && npm run build && npm run start & npm run test:e2e",
+    "test:e2e": "playwright test"
+  }
+}
+```
+
+**Note:** The `webServer` configuration in `playwright.config.ts` handles the build + start automatically, so `npm run qa` can just run `npm run test:e2e` and Playwright will manage the server lifecycle.
+
+**Accessibility Testing Setup:**
+```bash
+npm install -D @axe-core/playwright
+```
+
+**Trace Recording:**
+- Playwright automatically records traces on first retry when `trace: 'on-first-retry'` is set
+- Traces are saved as `trace.zip` files in `test-results/` directory
+- Open traces with: `npx playwright show-trace trace.zip`
+- This turns "4 hours guessing" into "10 minutes seeing what happened"
+
+**Critical Flows to Test:**
+- User authentication (login, logout, registration) - happy path AND error paths
+- Main feature workflows - complete user journeys
+- Form submissions - success and validation error states
+- Navigation flows - user can move through the application
+- Error handling - error states are user-visible and testable
+- Data persistence - user actions persist correctly
+- **Accessibility:** All critical flows must pass accessibility scans (axe + Playwright)
+
+**MSW Scenarios for E2E Tests:**
+- Use named MSW scenarios (`mocks/scenarios.ts`) to test different API states
+- Switch scenarios in E2E tests to test error paths, slow responses, rate limits
+- Example: Set `MSW_SCENARIO=500` to test error handling
+- Example: Set `MSW_SCENARIO=slow` to test loading states
+- Wire MSW into Storybook + component tests + dev so UI always has deterministic data
+- This prevents "frontend works sometimes but not always" bugs
+
+**Testcontainers for Postgres (REQUIRED for Projects with Postgres)**
+
+**CRITICAL:** Use real Postgres in tests, not DB mocking. Testcontainers gives you disposable real Postgres in Docker.
+
+**Why Real Postgres:**
+- Prevents UI bugs that are actually "DB returned something unexpected"
+- Tests run against real database behavior (constraints, transactions, etc.)
+- Integration tests are consistent and close to production
+
+**Setup:**
+```bash
+npm install -D @testcontainers/postgresql
+```
+
+**Required Structure:**
+```
+test/
+└── integration/
+    ├── setup.ts           # Testcontainers setup
+    └── *.test.ts          # Integration tests
+
+db/
+├── migrations/            # Database migrations
+└── seed/                  # Seed scripts
+```
+
+**Example Integration Test Setup:**
+```typescript
+// test/integration/setup.ts
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { PrismaClient } from '@prisma/client';
+
+let container: PostgreSqlContainer;
+let prisma: PrismaClient;
+
+export async function setupTestDatabase() {
+  container = new PostgreSqlContainer('postgres:15');
+  await container.start();
+  
+  const databaseUrl = container.getConnectionUri();
+  process.env.DATABASE_URL = databaseUrl;
+  
+  prisma = new PrismaClient();
+  await prisma.$connect();
+  
+  // Run migrations
+  // Run seed scripts
+  
+  return { prisma, container };
+}
+
+export async function teardownTestDatabase() {
+  await prisma?.$disconnect();
+  await container?.stop();
+}
+```
+
+**Required `package.json` script:**
+```json
+{
+  "scripts": {
+    "test:integration": "jest test/integration",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx db/seed/index.ts"
+  }
+}
+```
+
+### 4. Storybook + Visual Testing (REQUIRED for Frontend Projects)
+
+**Purpose:** Shift left on UI correctness. Turn every story into a test via visual testing, so UI regressions get caught without hand-checking.
+
+**When:** For all UI components - every component must have Storybook stories
+
+**What:** Storybook stories for every UI state + visual regression testing wired to CI
+
+**Tools:** Storybook + Chromatic (recommended) or Playwright visual comparison
+
+**Coverage:**
+- Every component must have stories for all states (loading, empty, error, success, unauthorized, offline)
+- Visual regression testing catches CSS/layout breakage
+- Stories represent all states from the states matrix
+
+**Setup:**
+```bash
+npx storybook@latest init
+npm install -D @chromatic-com/storybook
+```
+
+**Storybook Best Practices (REQUIRED):**
+- **Every UI state must have a story:** Match states matrix exactly
+- **Visual testing wired to CI:** Use Chromatic or equivalent to fail PRs on unintended diffs
+- **Stories represent all states:** Each component should have stories for all states from the states matrix
+
+**Example `stories/UserCard.stories.tsx`:**
+```typescript
+import type { Meta, StoryObj } from '@storybook/react';
+import { UserCard } from '../src/components/UserCard';
+
+const meta: Meta<typeof UserCard> = {
+  title: 'Components/UserCard',
+  component: UserCard,
+};
+
+export default meta;
+type Story = StoryObj<typeof UserCard>;
+
+// Story for each state (from states matrix)
+export const Loading: Story = {
+  args: { loading: true },
+};
+
+export const Empty: Story = {
+  args: { user: null },
+};
+
+export const Error: Story = {
+  args: { error: 'Failed to load user' },
+};
+
+export const Success: Story = {
+  args: { user: { id: '1', name: 'John Doe', email: 'john@example.com' } },
+};
+```
+
+**CI Integration (`.github/workflows/visual-tests.yml`):**
+```yaml
+name: Visual Tests
+on: [pull_request]
+jobs:
+  visual-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm ci
+      - run: npm run build-storybook
+      - run: npm run test:visual
+```
+
+### 5. Visual Regression Testing (Optional but Highly Recommended)
+
+**When:** For UI features, especially layout/CSS changes - catches "everything passes but UI looks wrong"
+
+**What:** Screenshot pages/components and diff against approved baselines
+
+**Tools:** Playwright (built-in visual comparison), Percy, Chromatic, or similar
+
+**Coverage:**
+- Visual appearance and correctness
+- CSS/layout breakage detection
+- Responsive design (mobile, tablet, desktop)
+- Component visual states (loading, error, success, empty)
+
+**Setup (Playwright):**
+```typescript
+// playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    // Stable environment for visual tests
+    screenshot: 'only-on-failure',
+    // Deterministic UI runs (see below)
+    reducedMotion: 'reduce',
+  },
+  expect: {
+    // Visual comparison threshold
+    toHaveScreenshot: { threshold: 0.2 },
+  },
+});
+```
+
+**Example:**
+```typescript
+test('dashboard layout matches baseline', async ({ page }) => {
+  await page.goto('/dashboard');
+  await expect(page).toHaveScreenshot('dashboard.png');
+});
+```
+
+**Note:** Visual regression tests require stable environments (same browser/OS versions) to reduce noise. Run in CI with consistent environments.
+
+## Test Planning (REQUIRED - Part of Planning Phase)
+
+**CRITICAL:** Before implementing any feature, create a test plan. This is part of the planning phase, not a later step.
+
+**Test Plan Must Include:**
+1. **What tests will prove each step:** List unit tests, integration tests, E2E tests needed
+2. **States to test:** All states from states matrix (loading, empty, error, success, unauthorized, offline)
+3. **User flows to test:** All critical user journeys
+4. **Accessibility checks:** What accessibility scans are needed
+5. **Visual regression:** What components need visual snapshots
+6. **MSW scenarios:** What mock scenarios are needed (happy, empty, rate_limited, 500, slow)
+
+**Example Test Plan:**
+```markdown
+## Test Plan for User Profile Feature
+
+### Unit Tests:
+- [ ] UserCard component renders correctly
+- [ ] View model transformation (toUserCardVM) works
+- [ ] Error handling for invalid API responses
+
+### Integration Tests:
+- [ ] API endpoint returns correct data
+- [ ] View model maps API data to UI correctly
+
+### E2E Tests:
+- [ ] User can view profile (happy path)
+- [ ] Error state shows when API fails (MSW_SCENARIO=500)
+- [ ] Loading state shows during fetch (MSW_SCENARIO=slow)
+- [ ] Empty state shows when no data (MSW_SCENARIO=empty)
+
+### Accessibility:
+- [ ] Profile page passes axe scan
+- [ ] All form inputs have labels
+- [ ] Error messages are accessible
+
+### Visual Regression:
+- [ ] UserCard component snapshot (all states)
+- [ ] Profile page layout snapshot
+
+### Storybook Stories:
+- [ ] Loading state story
+- [ ] Empty state story
+- [ ] Error state story
+- [ ] Success state story
+```
+
+**Why Test Planning First:**
+- Agents do best when plan includes what tests will prove each step
+- Forces "write → run tests → fix" loop from the start
+- Prevents "add tests later" anti-pattern
+- Makes testing part of planning, not a later step
+
+## Testing Workflow
+
+### During Development
+
+**CRITICAL WORKFLOW:** Every feature implementation must include its tests as part of the same work.
+
+1. **Test Planning First (REQUIRED):**
+   - Create test plan before implementing feature
+   - List all tests needed (unit, integration, E2E, visual, accessibility)
+   - List all states to test (from states matrix)
+   - List all MSW scenarios needed
+   - This is part of planning, not a later step
+
+2. **Test-First Development (TDD) - REQUIRED:**
+   - Write failing test FIRST
+   - Implement code to pass test
+   - Refactor while keeping tests green
+   - **Do not implement features without tests**
+
+2. **Tests Built With Features - MANDATORY:**
+   - **Every feature must include its tests in the same implementation**
+   - Unit tests written for each function/component as you build it
+   - Integration tests written when components interact (at the same time)
+   - E2E tests written for complete user flows (as part of feature implementation)
+   - **DO NOT implement a feature and then "add tests later" - tests are part of the feature implementation**
+
+3. **Run tests frequently:**
+   - Run tests after each small change
+   - Fix failing tests immediately
+   - Don't accumulate untested code
+   - **Never commit code without its tests**
+
+4. **Verify coverage:**
+   - Check coverage after each feature (tests should be included)
+   - Ensure coverage is 90%+
+   - **If coverage drops below 90%, add tests immediately - do not proceed without tests**
+
+### Before Stage Completion
+
+**Use Quality Gate Command:**
+
+1. **Run quality gate:**
+   ```bash
+   npm run qa
+   ```
+   This single command should run:
+   - Typecheck (strict TypeScript)
+   - Lint (ESLint)
+   - Unit/component tests
+   - Build
+   - E2E tests (Playwright)
+   - (Optional) Visual regression tests
+
+2. **If quality gate fails:**
+   - Fix the failing step
+   - Re-run `npm run qa`
+   - Iterate until ALL checks pass
+
+3. **Verify coverage:**
+   - Check coverage report (should be included in test step)
+   - Ensure 90%+ coverage
+   - Fix any coverage gaps
+
+4. **Paste output as evidence:**
+   - Do not claim "done" without pasting the `npm run qa` output
+   - All steps must show as passing
+
+## Regression Testing
+
+**CRITICAL:** After implementing new features, perform regression testing.
+
+**Process:**
+1. Randomly select 1-2 previously completed features
+2. Run the same tests/validation used when first implemented
+3. Verify they still work correctly
+4. If broken, fix regression before proceeding
+
+**Why Critical:**
+- Catches breaking changes immediately
+- Prevents accumulation of broken features
+- Ensures application remains functional
+
+## Coverage Verification
+
+**Commands:**
+```bash
+# JavaScript/TypeScript projects
+npm run test:coverage
+# or
+npm test -- --coverage
+
+# Verify coverage threshold
+# Coverage must be 90%+ before proceeding
+```
+
+**Coverage Tools:**
+- Jest coverage
+- Vitest coverage
+- Istanbul/nyc
+- Project-specific coverage tools
+
+**Coverage Report:**
+- Review coverage report after each feature
+- Identify uncovered code
+- Add tests for uncovered code
+- Maintain 90%+ coverage
+
+## UI Feature Checklist (Minimum Requirements)
+
+**For every UI feature/PR, require (minimum):**
+
+1. **Type safety at boundaries:**
+   - Strict TypeScript enabled
+   - Runtime validation where possible (Zod/OpenAPI/tRPC)
+   - Prevents "undefined crashed the UI" bugs
+
+2. **Component tests for all states:**
+   - Loading state
+   - Empty state
+   - Error state
+   - Success state
+   - Each state should be testable and user-visible
+
+3. **E2E tests:**
+   - At least one Playwright E2E test for the happy path
+   - One "sad path" test if it's a form/payment/auth flow
+   - Use stable selectors (role/text/testid)
+
+4. **Visual regression (optional but high ROI):**
+   - One visual snapshot for the page/component
+   - Catches CSS/layout breakage that other tests miss
+
+**This turns "frontend debugging" into "frontend verification."**
+
+## Test File Organization
+
+**Structure:**
+```
+project-root/
+├── src/
+│   ├── components/
+│   │   ├── Button.tsx
+│   │   └── __tests__/
+│   │       └── Button.test.tsx
+│   └── utils/
+│       ├── helpers.ts
+│       └── __tests__/
+│           └── helpers.test.ts
+├── tests/
+│   ├── integration/
+│   │   └── api.test.ts
+│   └── e2e/
+│       └── auth.spec.ts
+└── playwright.config.ts
+```
+
+## Integration with Project Documentation
+
+**Check project-specific cursor rules** for:
+- Project-specific testing requirements
+- Testing framework preferences
+- Coverage thresholds (must be 90%+ minimum)
+- E2E test requirements
+
+## Checklist
+
+**Before marking feature/stage as complete:**
+
+- [ ] Feature implementation includes tests (tests built WITH feature, not after)
+- [ ] Unit tests written WITH feature implementation and passing
+- [ ] Integration tests written WITH feature implementation and passing
+- [ ] E2E Playwright tests written WITH feature implementation (using stable selectors: role/text/testid)
+- [ ] Test plan created before implementation (part of planning phase)
+- [ ] Storybook stories created for all component states
+- [ ] Visual regression tests added (if applicable)
+- [ ] Accessibility scans pass (axe + Playwright)
+- [ ] Playwright traces configured (`trace: 'on-first-retry'`)
+- [ ] Deterministic UI runs configured (`reducedMotion: 'reduce'`, stable states)
+- [ ] MSW scenarios created for all test cases (happy, empty, rate_limited, 500, slow)
+- [ ] Quality gate command (`npm run qa`) passes - **paste output as evidence**
+- [ ] Test coverage is 90%+ (verified with coverage report)
+- [ ] All tests pass (run full test suite)
+- [ ] Typecheck passes (strict TypeScript)
+- [ ] Lint passes (ESLint)
+- [ ] Build succeeds
+- [ ] Regression testing completed (1-2 previously completed features)
+- [ ] Coverage report reviewed and gaps addressed
+- [ ] Code and tests committed together (tests are part of feature, not separate commit)
+- [ ] **CRITICAL: Do not claim "done" without running `npm run qa` and pasting the output showing all checks pass**
+
+## Related Rules
+
+- [project-implementation](@project-implementation) - Implementation workflow
+- [code-quality](@code-quality) - Code quality standards
+- Project-specific cursor rules - Project-specific testing requirements

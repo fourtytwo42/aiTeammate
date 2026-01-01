@@ -1,0 +1,142 @@
+---
+description: Code quality standards and verification requirements for all projects. Copy this to .cursor/rules/ in any project.
+globs: **/*
+alwaysApply: true
+---
+
+# Code Quality Standards
+
+**CRITICAL:** All code must pass quality checks before committing. Code quality verification is mandatory.
+
+## Quality Requirements
+
+### 1. Linting
+
+**Requirement:** All code must pass linting checks
+
+**Tools:** ESLint, TSLint, or project-specific linter
+
+**Commands:**
+```bash
+npm run lint
+# or
+npm run lint:fix
+```
+
+**Before Committing:**
+- [ ] Run linting command
+- [ ] Fix all linting errors
+- [ ] Fix all linting warnings (if configured)
+- [ ] Verify linting passes
+
+### 2. Formatting
+
+**Requirement:** All code must be properly formatted
+
+**Tools:** Prettier, Biome, or project-specific formatter
+
+**Commands:**
+```bash
+npm run format
+# or
+npm run format:check
+```
+
+**Before Committing:**
+- [ ] Run formatting command
+- [ ] Ensure code is formatted consistently
+- [ ] Verify formatting passes
+
+### 3. Type Checking
+
+**Requirement:** No TypeScript/compilation errors
+
+**Commands:**
+```bash
+tsc --noEmit
+# or
+npm run type-check
+```
+
+**Before Committing:**
+- [ ] Run type checking
+- [ ] Fix all type errors
+- [ ] Verify no compilation errors
+
+### 4. Code Cleanup
+
+**Requirement:** Remove debug code and unused imports
+
+**Before Committing:**
+- [ ] Remove all `console.log` statements
+- [ ] Remove all debug code
+- [ ] Remove commented-out code (unless necessary)
+- [ ] Remove unused imports
+- [ ] Remove unused variables
+
+### 5. Code Review Checklist
+
+**Before Committing:**
+- [ ] Code follows project structure
+- [ ] Code follows coding patterns specified in documentation
+- [ ] Code follows project-specific cursor rules
+- [ ] Code is properly documented (if required)
+- [ ] Code handles errors appropriately
+- [ ] Code is performant (no obvious performance issues)
+
+## Quality Verification Workflow
+
+### During Development
+
+1. **Run quality checks frequently:**
+   - Run linting after writing code
+   - Run formatting before committing
+   - Check types after changes
+
+2. **Fix issues immediately:**
+   - Don't accumulate quality issues
+   - Fix linting errors as you write code
+   - Keep code clean throughout development
+
+### Before Committing
+
+**Quality Checklist:**
+- [ ] `npm run lint` passes
+- [ ] `npm run format` passes (or `npm run format:check`)
+- [ ] `tsc --noEmit` passes (if TypeScript)
+- [ ] No console.logs or debug code
+- [ ] No commented-out code
+- [ ] All imports are used
+- [ ] Code follows project patterns
+
+**Commands:**
+```bash
+# Run all quality checks
+npm run lint
+npm run format:check
+npm run type-check  # if TypeScript
+
+# Or use combined command if available
+npm run quality-check
+```
+
+## Integration with Project Documentation
+
+**Check project-specific cursor rules** for:
+- Project-specific linting rules
+- Project-specific formatting rules
+- Project-specific code style guidelines
+- Project-specific patterns and conventions
+
+## Integration with Testing
+
+**Quality checks must pass alongside tests:**
+- Quality checks don't replace tests
+- Both quality checks and tests must pass
+- Quality checks verify code style, tests verify functionality
+
+## Related Rules
+
+- [project-implementation](@project-implementation) - Implementation workflow
+- [testing-requirements](@testing-requirements) - Testing requirements
+- Project-specific cursor rules - Project-specific quality standards
