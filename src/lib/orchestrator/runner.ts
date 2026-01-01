@@ -31,12 +31,25 @@ export async function executeRun(runId: string): Promise<void> {
     });
     publishRunUpdate({ runId, status: 'running' });
 
+    const providerConfig = await prisma.providerConfig.findUnique({
+      where: {
+        personaId_provider: {
+          personaId: run.personaId,
+          provider: run.persona.defaultProvider
+        }
+      }
+    });
+
     const stepOne = await prisma.runStep.create({
       data: {
         runId: run.id,
         stepNumber: 1,
         stepType: 'llm_call',
-        input: { prompt: run.input },
+        input: {
+          prompt: run.input,
+          provider: run.persona.defaultProvider,
+          model: providerConfig?.model ?? 'default'
+        },
         output: { summary: 'Planned task steps' },
         durationMs: 350
       }

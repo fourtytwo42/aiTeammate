@@ -18,6 +18,8 @@ export default function PersonasPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [defaultProvider, setDefaultProvider] = useState('openai');
+  const [fallbackProviders, setFallbackProviders] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   function loadPersonas() {
@@ -40,12 +42,19 @@ export default function PersonasPage() {
         body: JSON.stringify({
           name,
           description,
-          systemPrompt: systemPrompt || 'You are a helpful assistant.'
+          systemPrompt: systemPrompt || 'You are a helpful assistant.',
+          defaultProvider,
+          fallbackProviders: fallbackProviders
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
         })
       });
       setName('');
       setDescription('');
       setSystemPrompt('');
+      setDefaultProvider('openai');
+      setFallbackProviders('');
       loadPersonas();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create persona');
@@ -84,6 +93,26 @@ export default function PersonasPage() {
           value={systemPrompt}
           onChange={(event) => setSystemPrompt(event.target.value)}
         />
+        <div className="grid gap-3 tablet:grid-cols-2">
+          <select
+            className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-4 py-2"
+            value={defaultProvider}
+            onChange={(event) => setDefaultProvider(event.target.value)}
+          >
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="groq">Groq</option>
+            <option value="ollama">Ollama</option>
+            <option value="lmstudio">LM Studio</option>
+            <option value="litellm">LiteLLM</option>
+          </select>
+          <input
+            className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-4 py-2"
+            placeholder="Fallback providers (comma-separated)"
+            value={fallbackProviders}
+            onChange={(event) => setFallbackProviders(event.target.value)}
+          />
+        </div>
         {error ? <p className="text-sm text-[var(--color-secondary)]">{error}</p> : null}
         <button className="neon-button rounded-md px-6 py-2" type="submit">
           Create persona

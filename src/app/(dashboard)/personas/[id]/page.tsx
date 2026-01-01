@@ -24,6 +24,21 @@ type ToolSummary = {
   isEnabled: boolean;
 };
 
+type ProviderConfig = {
+  id: string;
+  provider: string;
+  model?: string | null;
+  baseUrl?: string | null;
+  isEnabled: boolean;
+  hasApiKey: boolean;
+};
+
+type ProviderSettings = {
+  defaultProvider: string;
+  fallbackProviders: string[];
+  configs: ProviderConfig[];
+};
+
 type MemorySummary = {
   data: Array<{ id: string; name: string; status: string }>;
 };
@@ -34,6 +49,16 @@ export default function PersonaDetailPage() {
   const [persona, setPersona] = useState<PersonaDetail | null>(null);
   const [tools, setTools] = useState<ToolSummary[]>([]);
   const [memoryDocs, setMemoryDocs] = useState<MemorySummary['data']>([]);
+  const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
+  const [defaultProvider, setDefaultProvider] = useState('');
+  const [fallbackProviders, setFallbackProviders] = useState('');
+  const [providerForm, setProviderForm] = useState({
+    provider: 'openai',
+    model: '',
+    baseUrl: '',
+    apiKey: '',
+    isEnabled: true
+  });
   const [agentName, setAgentName] = useState('');
   const [agentDescription, setAgentDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +76,14 @@ export default function PersonaDetailPage() {
     apiFetch<MemorySummary>(`/personas/${personaId}/memory?limit=5`)
       .then((response) => setMemoryDocs(response.data))
       .catch(() => setMemoryDocs([]));
+
+    apiFetch<ProviderSettings>(`/personas/${personaId}/providers`)
+      .then((response) => {
+        setProviderSettings(response);
+        setDefaultProvider(response.defaultProvider);
+        setFallbackProviders(response.fallbackProviders.join(', '));
+      })
+      .catch(() => setProviderSettings(null));
   }, [personaId]);
 
   async function handleCreateAgent(event: React.FormEvent) {
@@ -69,6 +102,55 @@ export default function PersonaDetailPage() {
       setPersona(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
+    }
+  }
+
+  async function handleUpdateProviders(event: React.FormEvent) {
+    event.preventDefault();
+    if (!personaId) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/personas/${personaId}/providers`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          defaultProvider,
+          fallbackProviders: fallbackProviders
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean)
+        })
+      });
+
+      const refreshed = await apiFetch<ProviderSettings>(`/personas/${personaId}/providers`);
+      setProviderSettings(refreshed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update providers');
+    }
+  }
+
+  async function handleSaveProviderConfig(event: React.FormEvent) {
+    event.preventDefault();
+    if (!personaId) return;
+    setError(null);
+
+    try {
+      await apiFetch(`/personas/${personaId}/providers`, {
+        method: 'POST',
+        body: JSON.stringify({
+          provider: providerForm.provider,
+          model: providerForm.model || undefined,
+          baseUrl: providerForm.baseUrl || undefined,
+          apiKey: providerForm.apiKey || undefined,
+          isEnabled: providerForm.isEnabled
+        })
+      });
+
+      setProviderForm({ provider: 'openai', model: '', baseUrl: '', apiKey: '', isEnabled: true });
+      const refreshed = await apiFetch<ProviderSettings>(`/personas/${personaId}/providers`);
+      setProviderSettings(refreshed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save provider');
     }
   }
 
@@ -158,6 +240,108 @@ export default function PersonaDetailPage() {
               <li>No tools enabled.</li>
             )}
           </ul>
+        </div>
+      </section>
+      <section className="grid gap-4 tablet:grid-cols-2">
+        <div className="glass-panel p-6">
+          <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+            Provider Defaults
+          </h2>
+          <form onSubmit={handleUpdateProviders} className="mt-4 space-y-3">
+            <select
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              value={defaultProvider}
+              onChange={(event) => setDefaultProvider(event.target.value)}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="groq">Groq</option>
+              <option value="ollama">Ollama</option>
+              <option value="lmstudio">LM Studio</option>
+              <option value="litellm">LiteLLM</option>
+            </select>
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="Fallback providers (comma-separated)"
+              value={fallbackProviders}
+              onChange={(event) => setFallbackProviders(event.target.value)}
+            />
+            <button type="submit" className="neon-button rounded-md px-4 py-2 text-xs">
+              Save defaults
+            </button>
+          </form>
+        </div>
+        <div className="glass-panel p-6">
+          <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+            Provider Config
+          </h2>
+          <form onSubmit={handleSaveProviderConfig} className="mt-4 space-y-3">
+            <select
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              value={providerForm.provider}
+              onChange={(event) => setProviderForm((prev) => ({ ...prev, provider: event.target.value }))}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="groq">Groq</option>
+              <option value="ollama">Ollama</option>
+              <option value="lmstudio">LM Studio</option>
+              <option value="litellm">LiteLLM</option>
+            </select>
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="Model (e.g. gpt-4o-mini)"
+              value={providerForm.model}
+              onChange={(event) => setProviderForm((prev) => ({ ...prev, model: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="Base URL (optional for local providers)"
+              value={providerForm.baseUrl}
+              onChange={(event) => setProviderForm((prev) => ({ ...prev, baseUrl: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="API key (optional)"
+              value={providerForm.apiKey}
+              onChange={(event) => setProviderForm((prev) => ({ ...prev, apiKey: event.target.value }))}
+            />
+            <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={providerForm.isEnabled}
+                onChange={(event) => setProviderForm((prev) => ({ ...prev, isEnabled: event.target.checked }))}
+              />
+              Enabled
+            </label>
+            <button type="submit" className="neon-button rounded-md px-4 py-2 text-xs">
+              Save provider
+            </button>
+          </form>
+        </div>
+      </section>
+      <section className="glass-panel p-6">
+        <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+          Configured Providers
+        </h2>
+        <div className="mt-4 space-y-3 text-sm text-[var(--color-text-secondary)]">
+          {providerSettings?.configs?.length ? (
+            providerSettings.configs.map((config) => (
+              <div key={config.id} className="flex items-center justify-between">
+                <div>
+                  <p className="text-[var(--color-text-primary)]">{config.provider}</p>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    {config.model ?? 'no model'} {config.baseUrl ? `- ${config.baseUrl}` : ''}
+                  </p>
+                </div>
+                <div className="text-xs uppercase">
+                  {config.isEnabled ? 'Enabled' : 'Disabled'} {config.hasApiKey ? '- Key' : '- No Key'}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p>No providers configured yet.</p>
+          )}
         </div>
       </section>
       <section className="grid gap-4 tablet:grid-cols-2">

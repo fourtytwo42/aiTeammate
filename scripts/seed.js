@@ -1,11 +1,11 @@
-import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../src/lib/auth/password';
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
 async function seed() {
-  const demoUserPassword = await hashPassword('demo123');
-  const demoAdminPassword = await hashPassword('admin123');
+  const demoUserPassword = await bcrypt.hash('demo123', 10);
+  const demoAdminPassword = await bcrypt.hash('admin123', 10);
 
   await prisma.user.upsert({
     where: { email: 'demo@persona-platform.local' },
@@ -158,6 +158,27 @@ async function seed() {
       }
     });
   }
+
+  await prisma.providerConfig.upsert({
+    where: {
+      personaId_provider: {
+        personaId: persona.id,
+        provider: 'openai'
+      }
+    },
+    update: {
+      model: 'gpt-4o-mini',
+      baseUrl: 'https://api.openai.com/v1',
+      isEnabled: true
+    },
+    create: {
+      personaId: persona.id,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      baseUrl: 'https://api.openai.com/v1',
+      isEnabled: true
+    }
+  });
 }
 
 seed()
