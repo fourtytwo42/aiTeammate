@@ -19,9 +19,11 @@ type PersonaDetail = {
 
 type ToolSummary = {
   id: string;
+  toolId: string;
   toolName: string;
   toolDescription: string;
   isEnabled: boolean;
+  config?: Record<string, unknown> | null;
 };
 
 type ProviderConfig = {
@@ -80,6 +82,18 @@ export default function PersonaDetailPage() {
     smtpPassword: ''
   });
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [toolForm, setToolForm] = useState({
+    toolId: '',
+    isEnabled: true,
+    configJson: ''
+  });
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
+  const [browserProfilePath, setBrowserProfilePath] = useState('/cache/browser-profile');
+  const [desktopVm, setDesktopVm] = useState({
+    enabled: false,
+    vncHost: '',
+    vncPort: 5900
+  });
   const [agentName, setAgentName] = useState('');
   const [agentDescription, setAgentDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +105,12 @@ export default function PersonaDetailPage() {
       .catch(() => setPersona(null));
 
     apiFetch<{ data: ToolSummary[] }>(`/personas/${personaId}/tools`)
-      .then((response) => setTools(response.data))
+      .then((response) => {
+        setTools(response.data);
+        if (response.data.length) {
+          setToolForm((prev) => ({ ...prev, toolId: response.data[0].toolId }));
+        }
+      })
       .catch(() => setTools([]));
 
     apiFetch<MemorySummary>(`/personas/${personaId}/memory?limit=5`)
@@ -225,6 +244,38 @@ export default function PersonaDetailPage() {
     }
   }
 
+  async function handleUpdateTool(event: React.FormEvent) {
+    event.preventDefault();
+    if (!personaId || !toolForm.toolId) return;
+    setError(null);
+    setToolStatus(null);
+
+    let parsedConfig: Record<string, unknown> | undefined;
+    if (toolForm.configJson.trim()) {
+      try {
+        parsedConfig = JSON.parse(toolForm.configJson) as Record<string, unknown>;
+      } catch (err) {
+        setError('Tool config must be valid JSON.');
+        return;
+      }
+    }
+
+    try {
+      await apiFetch(`/personas/${personaId}/tools/${toolForm.toolId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          isEnabled: toolForm.isEnabled,
+          config: parsedConfig
+        })
+      });
+      setToolStatus('Saved');
+      const refreshed = await apiFetch<{ data: ToolSummary[] }>(`/personas/${personaId}/tools`);
+      setTools(refreshed.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update tool');
+    }
+  }
+
   return (
     <DashboardShell>
       <header>
@@ -311,6 +362,38 @@ export default function PersonaDetailPage() {
               <li>No tools enabled.</li>
             )}
           </ul>
+          <form onSubmit={handleUpdateTool} className="mt-4 space-y-3">
+            <select
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              value={toolForm.toolId}
+              onChange={(event) => setToolForm((prev) => ({ ...prev, toolId: event.target.value }))}
+            >
+              {tools.map((tool) => (
+                <option key={tool.toolId} value={tool.toolId}>
+                  {tool.toolName}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={toolForm.isEnabled}
+                onChange={(event) => setToolForm((prev) => ({ ...prev, isEnabled: event.target.checked }))}
+              />
+              Enabled
+            </label>
+            <textarea
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder='Tool config JSON (optional)'
+              rows={3}
+              value={toolForm.configJson}
+              onChange={(event) => setToolForm((prev) => ({ ...prev, configJson: event.target.value }))}
+            />
+            {toolStatus ? <p className="text-xs text-[var(--color-secondary)]">{toolStatus}</p> : null}
+            <button type="submit" className="neon-button rounded-md px-4 py-2 text-xs">
+              Save tool settings
+            </button>
+          </form>
         </div>
       </section>
       <section className="grid gap-4 tablet:grid-cols-2">
@@ -500,6 +583,53 @@ export default function PersonaDetailPage() {
               Save email connector
             </button>
           </form>
+        </div>
+      </section>
+      <section className="grid gap-4 tablet:grid-cols-2">
+        <div className="glass-panel p-6">
+          <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+            Browser Connector
+          </h2>
+          <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+            Browser profile path is stored locally per persona.
+          </p>
+          <input
+            className="mt-4 w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+            placeholder="/cache/browser-profile"
+            value={browserProfilePath}
+            onChange={(event) => setBrowserProfilePath(event.target.value)}
+          />
+        </div>
+        <div className="glass-panel p-6">
+          <h2 className="text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+            Desktop VM Connector
+          </h2>
+          <div className="mt-4 space-y-3">
+            <label className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <input
+                type="checkbox"
+                checked={desktopVm.enabled}
+                onChange={(event) => setDesktopVm((prev) => ({ ...prev, enabled: event.target.checked }))}
+              />
+              Enabled
+            </label>
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              placeholder="VNC host"
+              value={desktopVm.vncHost}
+              onChange={(event) => setDesktopVm((prev) => ({ ...prev, vncHost: event.target.value }))}
+            />
+            <input
+              className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-3 py-2 text-sm"
+              type="number"
+              placeholder="VNC port"
+              value={desktopVm.vncPort}
+              onChange={(event) => setDesktopVm((prev) => ({ ...prev, vncPort: Number(event.target.value) }))}
+            />
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Desktop VM settings are stored in secrets when tooling support is enabled.
+            </p>
+          </div>
         </div>
       </section>
     </DashboardShell>
