@@ -1,0 +1,441 @@
+// Prisma schema for Persona Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  user
+}
+
+enum PersonaMemberRole {
+  editor
+  viewer
+}
+
+enum RunStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum RunStepType {
+  llm_call
+  tool_call
+  rag_retrieval
+  error
+}
+
+enum ToolCodeType {
+  python
+  javascript
+  builtin
+}
+
+enum ToolDependencyType {
+  requires
+  recommends
+  optional
+}
+
+enum DocumentStatus {
+  processing
+  completed
+  failed
+}
+
+enum EmailDirection {
+  inbound
+  outbound
+}
+
+enum SecretType {
+  llm_provider_key
+  email_imap
+  email_smtp
+  other
+}
+
+enum AuditEventCategory {
+  action
+  access
+  error
+  system
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique @db.VarChar(255)
+  passwordHash String         @db.VarChar(255)
+  name         String?        @db.VarChar(255)
+  role         UserRole       @default(user)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  lastLoginAt  DateTime?
+
+  personas         Persona[]
+  personaMembers   PersonaMember[]
+  runs             Run[]
+  sessions         Session[]
+  documents        Document[]
+  tools            Tool[]
+  auditEvents      AuditEvent[]
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @db.VarChar(255)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+model Persona {
+  id               String           @id @default(uuid()) @db.Uuid
+  name             String           @db.VarChar(255)
+  description      String?
+  systemPrompt     String
+  ownerId          String           @db.Uuid
+  defaultProvider  String           @db.VarChar(50)
+  fallbackProviders Json?
+  isActive         Boolean          @default(true)
+  containerId      String?          @db.VarChar(255)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  owner            User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members          PersonaMember[]
+  agents           Agent[]
+  runs             Run[]
+  documents        Document[]
+  personaTools     PersonaTool[]
+  chunks           Chunk[]
+  emails           Email[]
+  secrets          Secret[]
+  healthMetrics    PersonaHealthMetric[]
+  auditEvents      AuditEvent[]
+
+  @@index([ownerId])
+  @@index([name])
+}
+
+model PersonaMember {
+  id        String             @id @default(uuid()) @db.Uuid
+  personaId String             @db.Uuid
+  userId    String             @db.Uuid
+  role      PersonaMemberRole  @default(editor)
+  createdAt DateTime           @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([personaId, userId])
+  @@index([personaId])
+  @@index([userId])
+}
+
+model Agent {
+  id                  String   @id @default(uuid()) @db.Uuid
+  personaId           String   @db.Uuid
+  name                String   @db.VarChar(255)
+  description         String?
+  systemPromptOverride String?
+  preferredProvider   String?  @db.VarChar(50)
+  toolPermissions     Json?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  runs    Run[]
+
+  @@index([personaId])
+}
+
+model Run {
+  id          String    @id @default(uuid()) @db.Uuid
+  agentId     String    @db.Uuid
+  personaId   String    @db.Uuid
+  userId      String    @db.Uuid
+  traceId     String    @unique @db.VarChar(255)
+  status      RunStatus @default(pending)
+  input       String
+  output      String?
+  errorMessage String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  agent     Agent     @relation(fields: [agentId], references: [id])
+  persona   Persona   @relation(fields: [personaId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  steps     RunStep[]
+  artifacts Attachment[]
+  toolRuns  ToolRun[]
+  emails    Email[]
+  auditEvents AuditEvent[]
+
+  @@index([personaId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model RunStep {
+  id         String     @id @default(uuid()) @db.Uuid
+  runId      String     @db.Uuid
+  stepNumber Int
+  stepType   RunStepType
+  toolId     String?    @db.Uuid
+  input      Json?
+  output     Json?
+  durationMs Int?
+  createdAt  DateTime   @default(now())
+
+  run  Run  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tool Tool? @relation(fields: [toolId], references: [id])
+  toolRuns ToolRun[]
+
+  @@index([runId])
+  @@index([runId, stepNumber])
+}
+
+model Tool {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @unique @db.VarChar(255)
+  description String
+  category    String?      @db.VarChar(100)
+  schema      Json
+  code        String?
+  codeType    ToolCodeType?
+  isBuiltin   Boolean      @default(false)
+  createdBy   String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  descriptionEmbedding Unsupported("vector")?
+
+  creator         User?          @relation(fields: [createdBy], references: [id])
+  personaTools    PersonaTool[]
+  toolRuns        ToolRun[]
+  runSteps        RunStep[]
+  dependencies    ToolDependency[] @relation("ToolDependencies")
+  dependedOnBy    ToolDependency[] @relation("ToolDependents")
+
+  @@index([category])
+}
+
+model PersonaTool {
+  id        String   @id @default(uuid()) @db.Uuid
+  personaId String   @db.Uuid
+  toolId    String   @db.Uuid
+  isEnabled Boolean  @default(true)
+  config    Json?
+  createdAt DateTime @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  tool    Tool    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([personaId, toolId])
+  @@index([personaId])
+  @@index([toolId])
+}
+
+model ToolRun {
+  id         String   @id @default(uuid()) @db.Uuid
+  toolId     String   @db.Uuid
+  runId      String   @db.Uuid
+  runStepId  String?  @db.Uuid
+  traceId    String   @db.VarChar(255)
+  input      Json
+  output     Json?
+  error      String?
+  durationMs Int?
+  createdAt  DateTime @default(now())
+
+  tool   Tool   @relation(fields: [toolId], references: [id])
+  run    Run    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runStep RunStep? @relation(fields: [runStepId], references: [id])
+
+  @@index([toolId])
+  @@index([runId])
+  @@index([createdAt])
+}
+
+model ToolDependency {
+  id              String              @id @default(uuid()) @db.Uuid
+  toolId          String              @db.Uuid
+  dependsOnToolId String              @db.Uuid
+  dependencyType  ToolDependencyType  @default(requires)
+  createdAt       DateTime            @default(now())
+
+  tool        Tool @relation("ToolDependencies", fields: [toolId], references: [id], onDelete: Cascade)
+  dependsOnTool Tool @relation("ToolDependents", fields: [dependsOnToolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, dependsOnToolId])
+  @@index([toolId])
+  @@index([dependsOnToolId])
+}
+
+model Document {
+  id         String        @id @default(uuid()) @db.Uuid
+  personaId  String        @db.Uuid
+  name       String        @db.VarChar(255)
+  source     String?       @db.VarChar(255)
+  sourceUrl  String?
+  filePath   String?
+  fileSize   BigInt?
+  mimeType   String?       @db.VarChar(100)
+  status     DocumentStatus @default(processing)
+  errorMessage String?
+  uploadedBy String        @db.Uuid
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  uploader User   @relation(fields: [uploadedBy], references: [id])
+  chunks   Chunk[]
+
+  @@index([personaId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Chunk {
+  id           String   @id @default(uuid()) @db.Uuid
+  documentId   String   @db.Uuid
+  personaId    String   @db.Uuid
+  chunkIndex   Int
+  text         String
+  tokenCount   Int?
+  embedding    Unsupported("vector")
+  isCurated    Boolean  @default(false)
+  sourceChunkIds String[]?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  persona  Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([personaId])
+}
+
+model PersonaHealthMetric {
+  id            String   @id @default(uuid()) @db.Uuid
+  personaId     String   @db.Uuid
+  cpuPercent    Decimal? @db.Decimal(5,2)
+  memoryMb      Int?
+  memoryPercent Decimal? @db.Decimal(5,2)
+  diskUsageGb   Decimal? @db.Decimal(10,2)
+  llmCallsCount Int      @default(0)
+  estimatedCost Decimal? @db.Decimal(10,4)
+  activeRunsCount Int    @default(0)
+  measuredAt    DateTime @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@index([personaId])
+  @@index([measuredAt])
+  @@index([personaId, measuredAt])
+}
+
+model Email {
+  id         String        @id @default(uuid()) @db.Uuid
+  personaId  String        @db.Uuid
+  runId      String?       @db.Uuid
+  direction  EmailDirection
+  messageId  String?       @db.VarChar(255)
+  threadId   String?       @db.VarChar(255)
+  fromEmail  String        @db.VarChar(255)
+  toEmail    String        @db.VarChar(255)
+  cc         String?
+  bcc        String?
+  subject    String?
+  bodyText   String?
+  bodyHtml   String?
+  receivedAt DateTime?
+  sentAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  run     Run?    @relation(fields: [runId], references: [id])
+  attachments Attachment[]
+
+  @@index([personaId])
+  @@index([runId])
+  @@index([threadId])
+  @@index([createdAt])
+}
+
+model Attachment {
+  id        String   @id @default(uuid()) @db.Uuid
+  emailId   String?  @db.Uuid
+  runId     String?  @db.Uuid
+  name      String   @db.VarChar(255)
+  filePath  String
+  fileSize  BigInt
+  mimeType  String?  @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  email Email? @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  run   Run?   @relation(fields: [runId], references: [id])
+
+  @@index([emailId])
+  @@index([runId])
+  @@index([createdAt])
+}
+
+model Secret {
+  id            String    @id @default(uuid()) @db.Uuid
+  personaId     String    @db.Uuid
+  secretType    SecretType
+  keyName       String    @db.VarChar(255)
+  encryptedValue String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@unique([personaId, secretType, keyName])
+  @@index([personaId])
+}
+
+model AuditEvent {
+  id           String            @id @default(uuid()) @db.Uuid
+  userId       String?           @db.Uuid
+  personaId    String?           @db.Uuid
+  runId        String?           @db.Uuid
+  traceId      String?           @db.VarChar(255)
+  eventType    String            @db.VarChar(100)
+  eventCategory AuditEventCategory
+  description  String
+  metadata     Json?
+  ipAddress    String?           @db.VarChar(45)
+  createdAt    DateTime          @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  persona Persona? @relation(fields: [personaId], references: [id])
+  run     Run?     @relation(fields: [runId], references: [id])
+
+  @@index([userId])
+  @@index([personaId])
+  @@index([runId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([traceId])
+}

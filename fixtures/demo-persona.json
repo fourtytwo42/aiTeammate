@@ -1,0 +1,5 @@
+{
+  "name": "Demo Persona",
+  "description": "Sample persona for local development",
+  "systemPrompt": "You are a helpful assistant."
+}

@@ -1,0 +1,45 @@
+---
+description: Persona Platform project specific rules for stack, layout, styling, and conventions.
+globs: **/*
+---
+
+# Persona Platform Project Rules
+
+## Tech Stack
+- Next.js 15.x App Router
+- React 19.x
+- TypeScript 5.x with strict true
+- Tailwind CSS 3.x
+- Shadcn UI components
+- Prisma ORM
+- PostgreSQL 16.x with pgvector
+- Redis 7.x message bus
+- LangGraph.js for orchestration
+- LiteLLM proxy for LLM gateway
+- Playwright for E2E
+
+## Frontend Styling Lock
+- Follow `persona-platform/persona-platform-ui-design.md` exactly for layout, color tokens, typography, motion, and component states
+- Primary accent `#7E5DFF`, secondary accent `#FFA726`, background `#0B0F1E`, panel `#13182B`, outline `rgba(255,255,255,0.08)`
+- Gradient token `linear-gradient(135deg,#7E5DFF,#4DA0FC)`
+- Typography: Inter for body, Space Grotesk for headings
+- Layout: left rail, center workspace, right utility column. Breakpoints at 1280px and 960px as specified
+- Utility classes required: `.glass-panel`, `.neon-button`, `.shimmer-surface`, `.line-timeline`
+- Focus ring: `box-shadow: 0 0 0 3px rgba(126,93,255,0.35)`
+
+## API and Data Conventions
+- Next.js API routes under `src/app/api`
+- Use Prisma client singleton at `src/lib/db/prisma.ts`
+- JWT auth and middleware under `src/lib/auth`
+- All error responses use standard error format from API spec
+
+## Testing
+- Use Vitest or Jest for unit and integration tests
+- Use Playwright for E2E tests against production builds
+- Minimum coverage 90 percent for lines, branches, functions
+- All feature work includes tests in same change
+
+## Do Not Change
+- UI layout and styling tokens without updating the UI design doc
+- Database schema field names without updating `persona-platform/persona-platform-database.md`
+- API request and response shapes without updating `persona-platform/persona-platform-api.md`

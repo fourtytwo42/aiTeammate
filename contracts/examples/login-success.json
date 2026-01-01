@@ -1,0 +1,10 @@
+{
+  "user": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "email": "demo@persona-platform.local",
+    "name": "Demo User",
+    "role": "user"
+  },
+  "token": "jwt-token",
+  "refreshToken": "refresh-token"
+}

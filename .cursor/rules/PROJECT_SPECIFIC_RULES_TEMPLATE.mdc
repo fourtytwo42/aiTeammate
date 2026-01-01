@@ -1,0 +1,34 @@
+---
+description: Template for project specific rules. Copy to project-specific.mdc and fill in required fields.
+globs: **/*
+---
+
+# Project Specific Rules Template
+
+## Tech Stack
+- Frontend framework and version
+- Backend framework and version
+- Database and version
+- Tooling and test frameworks
+
+## Styling
+- Fonts
+- Color tokens
+- Layout rules
+- Motion rules
+
+## Conventions
+- File structure
+- Naming conventions
+- API patterns
+- Data access patterns
+
+## Testing
+- Unit test framework
+- Integration test framework
+- E2E test framework
+- Coverage thresholds
+
+## Do Not Change
+- Any locked design tokens
+- Any locked architecture constraints

@@ -1,77 +1,18 @@
-# AI Teammate
+# Persona Platform
 
-An AI-powered development assistant and teammate for modern software development.
+Multi-tenant agentic AI workspace platform for managing AI personas, runs, tools, and memory.
 
-## Overview
+## Quick Start
+1. Install dependencies: `npm install`
+2. Copy env file: `cp .env.example .env.local`
+3. Start services: `docker-compose up -d`
+4. Run migrations: `npm run db:migrate`
+5. Seed demo users: `npm run db:seed`
+6. Start dev server: `npm run dev`
 
-AI Teammate is designed to help developers build, test, and deploy applications more efficiently by providing intelligent assistance throughout the development lifecycle.
+## Docs
+- `docs/README.md`
+- `persona-platform/persona-platform.md`
 
-## Features
-
-- Intelligent code generation and suggestions
-- Automated testing and quality assurance
-- Project management and task tracking
-- Documentation generation
-- Code review and refactoring assistance
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20.x or higher
-- npm 10.x or higher
-- PostgreSQL 17.x (optional, for database features)
-
-### Installation
-
-```bash
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# Start development server
-npm run dev
-```
-
-## Project Structure
-
-```
-aiTeammate/
-├── src/           # Source code
-├── tests/         # Test files
-├── docs/          # Documentation
-├── .cursor/       # Cursor AI configuration
-└── README.md      # This file
-```
-
-## Development
-
-```bash
-# Run development server
-npm run dev
-
-# Run tests
-npm test
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-MIT
-
-## Author
-
-Eric Henderson
-
+## Status
+Implementation in progress. See `persona-platform/` for specs.
