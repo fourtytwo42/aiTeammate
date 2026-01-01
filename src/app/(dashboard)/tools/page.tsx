@@ -1,12 +1,25 @@
-import { DashboardShell } from '@/components/layout/DashboardShell';
+'use client';
 
-const tools = [
-  { name: 'generate_powerpoint', description: 'Create slides in .pptx format', category: 'office' },
-  { name: 'send_email', description: 'Deliver email with attachments', category: 'email' },
-  { name: 'browser_navigate', description: 'Automate research navigation', category: 'browser' }
-];
+import { useEffect, useState } from 'react';
+import { DashboardShell } from '@/components/layout/DashboardShell';
+import { apiFetch } from '@/lib/api/client';
+
+type ToolSummary = {
+  id: string;
+  name: string;
+  description: string;
+  category?: string | null;
+};
 
 export default function ToolsPage() {
+  const [tools, setTools] = useState<ToolSummary[]>([]);
+
+  useEffect(() => {
+    apiFetch<{ data: ToolSummary[] }>('/tools')
+      .then((response) => setTools(response.data))
+      .catch(() => setTools([]));
+  }, []);
+
   return (
     <DashboardShell>
       <header>
@@ -18,17 +31,21 @@ export default function ToolsPage() {
         </p>
       </header>
       <section className="grid gap-4 tablet:grid-cols-2">
-        {tools.map((tool) => (
-          <div key={tool.name} className="glass-panel p-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">
-              {tool.category}
-            </p>
-            <h2 className="mt-2 text-lg" style={{ fontFamily: 'var(--font-space)' }}>
-              {tool.name}
-            </h2>
-            <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{tool.description}</p>
-          </div>
-        ))}
+        {tools.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-secondary)]">No tools registered.</p>
+        ) : (
+          tools.map((tool) => (
+            <div key={tool.id} className="glass-panel p-5">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">
+                {tool.category ?? 'general'}
+              </p>
+              <h2 className="mt-2 text-lg" style={{ fontFamily: 'var(--font-space)' }}>
+                {tool.name}
+              </h2>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{tool.description}</p>
+            </div>
+          ))
+        )}
       </section>
     </DashboardShell>
   );

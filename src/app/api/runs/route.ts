@@ -6,6 +6,7 @@ import { canAccessPersona } from '@/lib/auth/permissions';
 import { generateTraceId } from '@/lib/observability/trace';
 import { RunStatus } from '@prisma/client';
 import { forbidden, notFound, unauthorized, validationError } from '@/lib/api/responses';
+import { executeRun } from '@/lib/orchestrator/runner';
 
 const CreateRunSchema = z.object({
   agentId: z.string().uuid(),
@@ -101,6 +102,10 @@ export async function POST(request: NextRequest) {
       traceId: generateTraceId()
     }
   });
+
+  setTimeout(() => {
+    executeRun(run.id).catch(() => undefined);
+  }, 0);
 
   return NextResponse.json({
     id: run.id,

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { setRefreshToken, setToken } from '@/lib/auth/client';
 
 const demoUser = {
   email: 'demo@persona-platform.local',
@@ -15,13 +17,43 @@ const demoAdmin = {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      setToken(data.token);
+      setRefreshToken(data.refreshToken);
+      router.replace('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
     <div className="glass-panel w-full max-w-md p-8">
       <h1 className="text-3xl mb-6" style={{ fontFamily: 'var(--font-space)' }}>
         Persona Platform
       </h1>
-      <div className="space-y-4">
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <input
           className="w-full rounded-md bg-transparent border border-[var(--color-outline)] px-4 py-3"
           placeholder="Email"
@@ -36,7 +68,10 @@ export default function LoginPage() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <button className="neon-button w-full rounded-md py-3">Sign in</button>
+        {error ? <p className="text-sm text-[var(--color-secondary)]">{error}</p> : null}
+        <button className="neon-button w-full rounded-md py-3" disabled={isLoading}>
+          {isLoading ? 'Signing in...' : 'Sign in'}
+        </button>
         <div className="grid grid-cols-2 gap-3">
           <button
             className="neon-button w-full rounded-md py-2"
@@ -59,7 +94,7 @@ export default function LoginPage() {
             Demo admin
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

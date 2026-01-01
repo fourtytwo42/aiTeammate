@@ -1,11 +1,24 @@
-import { DashboardShell } from '@/components/layout/DashboardShell';
+'use client';
 
-const events = [
-  { id: 'evt-901', type: 'tool_call', description: 'generate_powerpoint executed' },
-  { id: 'evt-900', type: 'email_sent', description: 'Sent report to hr@company.com' }
-];
+import { useEffect, useState } from 'react';
+import { DashboardShell } from '@/components/layout/DashboardShell';
+import { apiFetch } from '@/lib/api/client';
+
+type AuditEvent = {
+  id: string;
+  eventType: string;
+  description: string;
+};
 
 export default function AuditPage() {
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+
+  useEffect(() => {
+    apiFetch<{ data: AuditEvent[] }>('/audit?limit=20')
+      .then((response) => setEvents(response.data))
+      .catch(() => setEvents([]));
+  }, []);
+
   return (
     <DashboardShell>
       <header>
@@ -17,12 +30,16 @@ export default function AuditPage() {
         </p>
       </header>
       <section className="glass-panel divide-y divide-[var(--color-outline)]">
-        {events.map((event) => (
-          <div key={event.id} className="px-6 py-4">
-            <p className="text-sm text-[var(--color-text-secondary)]">{event.type}</p>
-            <p className="text-lg">{event.description}</p>
-          </div>
-        ))}
+        {events.length === 0 ? (
+          <p className="px-6 py-4 text-sm text-[var(--color-text-secondary)]">No audit events yet.</p>
+        ) : (
+          events.map((event) => (
+            <div key={event.id} className="px-6 py-4">
+              <p className="text-sm text-[var(--color-text-secondary)]">{event.eventType}</p>
+              <p className="text-lg">{event.description}</p>
+            </div>
+          ))
+        )}
       </section>
     </DashboardShell>
   );

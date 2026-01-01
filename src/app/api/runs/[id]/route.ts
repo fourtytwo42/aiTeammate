@@ -39,6 +39,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     personaName: run.persona.name,
     userId: run.userId,
     userName: run.user.name,
+    traceId: run.traceId,
     status: run.status,
     input: run.input,
     output: run.output,

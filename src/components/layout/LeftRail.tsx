@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { PersonaCard } from '@/components/PersonaCard';
+import { clearTokens } from '@/lib/auth/client';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -11,14 +14,42 @@ const navItems = [
   { href: '/admin', label: 'Admin' }
 ];
 
-export function LeftRail() {
+type PersonaSummary = {
+  id: string;
+  name: string;
+  description?: string | null;
+};
+
+type LeftRailProps = {
+  personas: PersonaSummary[];
+  activePersonaId: string | null;
+  onSelectPersona: (id: string) => void;
+};
+
+export function LeftRail({ personas, activePersonaId, onSelectPersona }: LeftRailProps) {
   return (
     <aside className="glass-panel flex h-full flex-col gap-6 p-4">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">Personas</p>
         <div className="mt-4 grid gap-3">
-          <PersonaCard name="Atlas" description="Ops orchestrator" status="running" />
-          <PersonaCard name="Nova" description="Research analyst" status="idle" />
+          {personas.length === 0 ? (
+            <p className="text-sm text-[var(--color-text-secondary)]">No personas yet.</p>
+          ) : (
+            personas.map((persona) => (
+              <button
+                key={persona.id}
+                type="button"
+                onClick={() => onSelectPersona(persona.id)}
+                className="text-left"
+              >
+                <PersonaCard
+                  name={persona.name}
+                  description={persona.description ?? undefined}
+                  status={activePersonaId === persona.id ? 'running' : 'idle'}
+                />
+              </button>
+            ))
+          )}
         </div>
       </div>
       <div className="border-t border-[var(--color-outline)] pt-4">
@@ -34,6 +65,16 @@ export function LeftRail() {
             </Link>
           ))}
         </nav>
+        <button
+          type="button"
+          className="mt-4 w-full rounded-md border border-[var(--color-outline)] px-3 py-2 text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]"
+          onClick={() => {
+            clearTokens();
+            window.location.assign('/login');
+          }}
+        >
+          Sign out
+        </button>
       </div>
     </aside>
   );
